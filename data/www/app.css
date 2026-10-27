@@ -1,0 +1,9 @@
+:root { color-scheme: dark; font-family: system-ui, sans-serif; background: #101216; color: #e9edf1; }
+body { margin: 0; } main { max-width: 780px; margin: auto; padding: 1.4rem; }
+header { border-bottom: 1px solid #343a43; margin-bottom: 1rem; } h1 { margin-bottom: .2rem; }
+section { background: #1a1e25; border: 1px solid #343a43; border-radius: 8px; padding: 1rem; margin: 1rem 0; }
+h2 { font-size: 1.1rem; margin-top: 0; } dl { display: grid; grid-template-columns: max-content 1fr; gap: .45rem 1rem; }
+dt { color: #aeb7c2; } dd { margin: 0; overflow-wrap: anywhere; } label { display: block; margin: .75rem 0; }
+input { display: block; box-sizing: border-box; width: 100%; max-width: 420px; margin-top: .3rem; padding: .55rem; background: #101216; border: 1px solid #596574; color: inherit; border-radius: 4px; }
+input[type=range] { display: inline-block; vertical-align: middle; } button { margin: .2rem; padding: .55rem .75rem; border: 1px solid #657182; border-radius: 4px; background: #26313e; color: #fff; cursor: pointer; }
+button:hover { background: #34455a; } #message { min-height: 1.4rem; color: #ffcb72; }

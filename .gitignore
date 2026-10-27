@@ -1,0 +1,10 @@
+.pio/
+.vscode/
+build/
+*.bin
+*.elf
+*.map
+*.orig
+.DS_Store
+credentials.ini
+secrets.*

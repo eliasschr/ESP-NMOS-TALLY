@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>ESP NMOS Tally</title>
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <main>
+    <header><h1>ESP NMOS Tally</h1><p id="mode">Loading device status…</p></header>
+    <section><h2>Device status</h2><dl id="status"></dl></section>
+    <section id="network-section" hidden>
+      <h2>Network setup</h2><p>Provisioning is active. Enter a local Wi-Fi network; the device will leave this setup network when it connects.</p>
+      <form id="network-form"><label>Device name<input name="name" maxlength="32" required></label><label>Wi-Fi network (SSID)<input name="ssid" maxlength="32" required></label><label>Wi-Fi password<input name="password" type="password" maxlength="64" autocomplete="new-password"></label><button>Save and connect</button></form>
+    </section>
+    <section id="test-section" hidden>
+      <h2>Tally testing</h2><p>Manual test controls are intentionally available only during provisioning.</p>
+      <div class="buttons"><button data-state="OFF">Off</button><button data-state="PROGRAM">Program</button><button data-state="PREVIEW">Preview</button><button data-state="WARNING">Warning</button><button data-state="IDENTIFY">Identify</button></div>
+      <label>Brightness <input id="brightness" type="range" min="0" max="255" value="64"><output id="brightness-value">64</output></label>
+    </section>
+    <section><h2>NMOS</h2><p>NMOS IS-07 MQTT event handling is planned and is not configured on this device.</p></section>
+    <p id="message" role="status"></p>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>
