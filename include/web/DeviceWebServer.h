@@ -27,15 +27,18 @@ class DeviceWebServer {
  private:
   void serveIndex();
   void serveStatus();
-  void serveSetup();
   void saveNetwork();
   void setTally();
-  bool setupRequestAllowed() const;
+  bool authorizedStateChange();
+  bool requestIsSameOrigin() const;
+  bool requestBodyIsAcceptable() const;
+  bool recordAuthorizationFailure();
   void sendError(int status, const char* message);
 
   Control& control_;
   ESP8266WebServer server_;
-  String setupToken_;
+  uint8_t authorizationFailures_;
+  uint32_t authorizationBlockedUntil_;
 };
 
 }  // namespace web

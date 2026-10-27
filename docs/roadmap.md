@@ -4,7 +4,7 @@
 
 - ESP8266 PlatformIO configuration
 - LittleFS-backed versioned configuration
-- Recoverable local Wi-Fi provisioning
+- USB-serial-authorized, time-limited local Wi-Fi provisioning
 - Read-only device status dashboard after station connection
 - Manual local tally test in provisioning mode
 - Non-blocking self-test and NeoPixel rendering
@@ -13,7 +13,7 @@
 ## Next development phase
 
 1. Add a physically guarded factory-reset flow.
-2. Improve provisioning credential handling and conduct a focused security review.
+2. Replace or extend HTTP handling if strict pre-parse request-body limits are required.
 3. Add MQTT transport with bounded reconnect/resubscribe behavior.
 4. Add strict NMOS IS-07 event validation and deployment-specific source mapping.
 5. Run real Wi-Fi, LED, power, and interoperability tests.

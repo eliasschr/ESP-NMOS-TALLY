@@ -3,7 +3,12 @@
 #include <cstring>
 
 #include "config/DeviceConfig.h"
+#include "config/ConfigRecord.h"
+#include "config/ConfigRecovery.h"
+#include "network/ConnectionState.h"
+#include "security/ProvisioningAuth.h"
 #include "tally/TallyState.h"
+#include "web/RequestValidation.h"
 
 void test_initial_state_is_off() {
   tally::StateMachine state;
@@ -46,7 +51,7 @@ void test_default_configuration_is_valid_but_unprovisioned() {
   const config::DeviceConfig value = config::defaults(2);
   TEST_ASSERT_TRUE(config::isValid(value));
   TEST_ASSERT_FALSE(config::hasNetwork(value));
-  TEST_ASSERT_EQUAL_UINT8(64, value.brightness);
+  TEST_ASSERT_EQUAL_UINT8(16, value.brightness);
 }
 
 void test_configuration_rejects_invalid_schema_and_unterminated_name() {
@@ -65,6 +70,77 @@ void test_bounded_copy_rejects_overflow() {
   TEST_ASSERT_FALSE(config::copyBounded(buffer, sizeof(buffer), "abcd"));
 }
 
+void test_brightness_is_conservatively_clamped() {
+  TEST_ASSERT_EQUAL_UINT8(32, config::clampBrightness(255));
+  TEST_ASSERT_EQUAL_UINT8(16, config::clampBrightness(16));
+  config::DeviceConfig value = config::defaults(2);
+  value.brightness = 33;
+  TEST_ASSERT_FALSE(config::isValid(value));
+}
+
+void test_configuration_record_detects_corruption() {
+  const config::ConfigRecord record = config::makeRecord(config::defaults(2));
+  TEST_ASSERT_TRUE(config::isRecordValid(record));
+  config::ConfigRecord corrupted = record;
+  corrupted.configuration.brightness = 17;
+  TEST_ASSERT_FALSE(config::isRecordValid(corrupted));
+}
+
+void test_backup_is_selected_when_the_primary_is_invalid() {
+  TEST_ASSERT_EQUAL(config::RecoverySource::Primary, config::selectRecoverySource(true, true));
+  TEST_ASSERT_EQUAL(config::RecoverySource::Backup, config::selectRecoverySource(false, true));
+  TEST_ASSERT_EQUAL(config::RecoverySource::None, config::selectRecoverySource(false, false));
+}
+
+void test_provisioning_authorization_and_window_lifecycle() {
+  constexpr char secret[] = "0123456789ABCDEF01234567";
+  TEST_ASSERT_TRUE(security::secretMatches(secret, secret, 24));
+  TEST_ASSERT_FALSE(security::secretMatches("0123456789ABCDEF01234568", secret, 24));
+  TEST_ASSERT_FALSE(security::secretMatches("short", secret, 24));
+  TEST_ASSERT_TRUE(security::provisioningWindowIsActive(100, 200));
+  TEST_ASSERT_FALSE(security::provisioningWindowIsActive(200, 200));
+  TEST_ASSERT_FALSE(security::provisioningWindowIsActive(100, 0));
+}
+
+void test_network_changes_are_distinguished_from_brightness_changes() {
+  const config::DeviceConfig current = config::defaults(2);
+  config::DeviceConfig brightnessChange = current;
+  brightnessChange.brightness = 20;
+  TEST_ASSERT_FALSE(config::networkSettingsChanged(current, brightnessChange));
+  config::DeviceConfig credentialChange = current;
+  config::copyBounded(credentialChange.wifiSsid, sizeof(credentialChange.wifiSsid), "studio");
+  TEST_ASSERT_TRUE(config::networkSettingsChanged(current, credentialChange));
+}
+
+void test_request_validation_rejects_malformed_input() {
+  unsigned long brightness = 0;
+  unsigned long contentLength = 0;
+  TEST_ASSERT_TRUE(web::validNetworkFields("Tally", "studio", "password"));
+  TEST_ASSERT_FALSE(web::validNetworkFields("", "studio", "password"));
+  TEST_ASSERT_TRUE(web::isDecimalInRange("256", 256, contentLength));
+  TEST_ASSERT_EQUAL_UINT32(256, contentLength);
+  TEST_ASSERT_FALSE(web::isDecimalInRange("257", 256, contentLength));
+  TEST_ASSERT_FALSE(web::isDecimalInRange("2 56", 256, contentLength));
+  TEST_ASSERT_FALSE(web::validTallyFields("PROGRAM", "33", brightness));
+  TEST_ASSERT_FALSE(web::validTallyFields("PROGRAM", "3x", brightness));
+  TEST_ASSERT_TRUE(web::validTallyFields("PROGRAM", "32", brightness));
+  TEST_ASSERT_EQUAL_UINT32(32, brightness);
+}
+
+void test_connection_policy_uses_timeout_and_backoff_without_provisioning() {
+  network::ConnectionStateMachine policy;
+  TEST_ASSERT_EQUAL(network::ConnectionAction::Connect, policy.begin(true, 0));
+  TEST_ASSERT_EQUAL(network::ConnectionState::Connecting, policy.state());
+  TEST_ASSERT_EQUAL(network::ConnectionAction::None,
+                    policy.update(false, network::ConnectionStateMachine::kConnectTimeoutMs));
+  TEST_ASSERT_EQUAL(network::ConnectionState::Backoff, policy.state());
+  TEST_ASSERT_EQUAL(network::ConnectionAction::Connect,
+                    policy.update(false, network::ConnectionStateMachine::kConnectTimeoutMs +
+                                             network::ConnectionStateMachine::kInitialBackoffMs));
+  TEST_ASSERT_EQUAL(network::ConnectionAction::None, policy.update(true, 30000));
+  TEST_ASSERT_EQUAL(network::ConnectionState::Connected, policy.state());
+}
+
 int main(int, char**) {
   UNITY_BEGIN();
   RUN_TEST(test_initial_state_is_off);
@@ -74,5 +150,12 @@ int main(int, char**) {
   RUN_TEST(test_default_configuration_is_valid_but_unprovisioned);
   RUN_TEST(test_configuration_rejects_invalid_schema_and_unterminated_name);
   RUN_TEST(test_bounded_copy_rejects_overflow);
+  RUN_TEST(test_brightness_is_conservatively_clamped);
+  RUN_TEST(test_configuration_record_detects_corruption);
+  RUN_TEST(test_backup_is_selected_when_the_primary_is_invalid);
+  RUN_TEST(test_provisioning_authorization_and_window_lifecycle);
+  RUN_TEST(test_network_changes_are_distinguished_from_brightness_changes);
+  RUN_TEST(test_request_validation_rejects_malformed_input);
+  RUN_TEST(test_connection_policy_uses_timeout_and_backoff_without_provisioning);
   return UNITY_END();
 }

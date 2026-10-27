@@ -7,6 +7,7 @@ namespace config {
 class Store {
  public:
   static constexpr const char* kPath = "/config.bin";
+  static constexpr const char* kBackupPath = "/config.bak";
 
   explicit Store(uint8_t defaultLedPin) : defaultLedPin_(defaultLedPin) {}
   bool begin();

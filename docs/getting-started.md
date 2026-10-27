@@ -8,10 +8,10 @@
    pio run -e feather_huzzah_esp8266 -t uploadfs
    ```
 
-3. On first boot, join the device AP `ESP-NMOS-TALLY-XXXXXX` and open `http://192.168.4.1`.
-4. Its password is `Tally-YYYYYY`, where `YYYYYY` is the six-digit uppercase hexadecimal value of `XXXXXX XOR 5A3C19`. This unique-but-derived password is a provisioning access constraint, not a high-assurance secret; use setup only in a physically controlled area.
-5. Enter a device name, Wi-Fi SSID, and Wi-Fi passphrase. The passphrase is sent only to the device over the local HTTP provisioning page and is not returned by any API or printed in logs.
+3. Open the USB serial console at 115200 baud and enter `PROVISION` on its own line. This is the physical authorization step.
+4. The console prints `ESP-NMOS-TALLY-SETUP` and a fresh 24-character provisioning secret. Join that AP with the secret, then open `http://192.168.4.1` before the 10-minute session expires.
+5. Enter the same secret in the setup page, then enter a device name, Wi-Fi SSID, and Wi-Fi passphrase. The passphrase is sent only to the device over this local HTTP provisioning page and is not returned by an API or printed in logs. The provisioning secret is held in browser memory only; it is not stored by the page.
 
-The device tries station Wi-Fi for 20 seconds. Failure returns it to recoverable provisioning mode. A valid configuration is stored in LittleFS. There is no factory reset mechanism yet; erase the LittleFS filesystem with PlatformIO only when you have physical custody of the device. Implementing a guarded physical reset is planned.
+The device tries station Wi-Fi for 20 seconds. Failure uses a non-blocking, bounded burst of three retries with backoff, then a 60-second cooldown before a later burst; it does not start the AP. Enter `PROVISION` over USB serial at any time to recover or replace credentials without knowing the old network. A valid configuration is stored in LittleFS with a version and CRC-32 integrity check; the previous valid primary is retained as a backup across a successful save. CRC detects accidental corruption, not tampering.
 
-The connected-network dashboard is status-only. To change credentials or use manual test controls, intentionally return the device to provisioning mode (currently by a failed station connection or clearing LittleFS under physical control).
+The connected-network dashboard is status-only. To change credentials or use manual test controls, enter `PROVISION` from USB serial. Do not erase LittleFS for routine recovery; reserve a physical filesystem erase for controlled servicing.

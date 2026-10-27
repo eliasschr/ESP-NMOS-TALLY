@@ -1,15 +1,17 @@
 # Security
 
-## Trust boundaries
+## Trust boundaries and provisioning
 
-Wi-Fi form fields and all HTTP requests are untrusted. Field lengths are limited before copying into fixed-size configuration storage. The status endpoint never returns the saved Wi-Fi password. Credentials are not logged. Configuration and manual LED controls are available only while the device is in provisioning mode.
+Wi-Fi form fields and all HTTP requests are untrusted. Field lengths are validated before copying into fixed-size configuration storage; malformed methods and oversized post-parse request bodies are rejected. The status endpoint never returns saved Wi-Fi credentials or provisioning secrets. Credentials and secrets are not logged. Configuration and manual LED controls are available only in a serial-authorized provisioning session.
 
-The provisioning page requires an in-memory setup token in a custom request header. The browser cannot attach that header cross-origin without an allowed CORS preflight, which provides a basic CSRF barrier. No CORS policy is enabled. This is not user authentication.
+USB serial access is the physical authorization boundary. The `PROVISION` command creates a new 96-bit secret from the ESP8266 SDK RNG and starts a 10-minute WPA2 AP session. The secret appears only on USB serial during that command, is never returned by HTTP, and is cleared when the session ends. Every state-changing request requires it in `X-Provisioning-Secret`; the request must also be same-origin when an `Origin` header is present. No CORS policy is enabled. Repeated authorization failures trigger a 30-second cooldown. The page does not use `localStorage`.
+
+`ESP8266WebServer` parses request bodies before route handlers run. This firmware rejects bodies over 256 bytes in handlers but cannot claim a pre-parser allocation bound with that library. The setup AP is time-limited, serial-authorized, and not automatically exposed following a station failure; replacing the web server is required before claiming strict pre-parse body limits.
 
 ## Known limitations
 
-The initial web interface is HTTP-only. Use it only on the device's temporary provisioning AP in a controlled physical environment. The per-device derived AP password prevents a universal factory password but is not cryptographically strong because its input is tied to the device identifier visible in the AP name. It must not be considered protection against a capable nearby attacker.
+The web interface is HTTP-only. Use it only on the temporary provisioning AP in a physically controlled environment. Anyone able to observe USB serial during a setup session or intercept plaintext HTTP on that AP can obtain the active provisioning secret and configure the device. The AP is not an internet-management interface and is unavailable unless a person with physical serial access authorizes it.
 
-LittleFS configuration storage is not encrypted. Treat physical flash access as credential exposure. The firmware exposes no remote internet management and stops its AP after joining station Wi-Fi. The connected-network dashboard is intentionally read-only.
+LittleFS configuration storage is not encrypted. Treat physical flash access as credential exposure. CRC-32 detects accidental corruption only; it is not cryptographic authentication. The firmware exposes no remote internet management and stops its AP after joining station Wi-Fi. The connected-network dashboard is intentionally read-only.
 
-Future work includes a physical factory-reset gesture, stronger device-unique provisioning credentials, authenticated management, TLS where memory and deployment constraints allow, and a formal review before MQTT/NMOS integration.
+Future work includes a physical factory-reset gesture, TLS where memory and deployment constraints allow, strict pre-parse HTTP limits using an appropriate server design, and a formal review before MQTT/NMOS integration.

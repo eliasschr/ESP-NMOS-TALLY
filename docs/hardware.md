@@ -10,6 +10,10 @@ Reference: [Adafruit NeoPixel FeatherWing pinouts](https://learn.adafruit.com/ad
 
 ## Power and brightness
 
-At full white, 32 NeoPixels can draw substantially more current than USB or a Feather regulator should be assumed to supply. The default brightness is 64/255 to limit the initial load. Use a suitable external 5 V supply for high-brightness or sustained all-pixel use, with common ground. Validate wiring, supply capacity, thermal behavior, and current draw on physical hardware before production use.
+At full white, 32 NeoPixels can draw substantially more current than USB or the Feather regulator should be assumed to supply. The Feather documentation lists the 3.3 V regulator as 500 mA peak and recommends keeping its load below 250 mA; the FeatherWing powers its pixels from USB or battery through Schottky diodes. Firmware defaults to 16/255 and clamps requests at 32/255, but `setBrightness()` is a rendering scale rather than a verified current limiter. Do not treat it as an electrical safety guarantee.
+
+Use a measured, adequately rated 5 V USB supply for this stacked FeatherWing configuration. Do not add pixels without separately powering them and sharing ground, as Adafruit requires. Measure worst-case supply current, voltage drop, regulator/connector temperature, and boot behavior on the actual installed hardware before production use. No such measurements have been performed for this repository.
+
+GPIO 15 is a boot-strapping pin on ESP8266 and must be low during reset. The FeatherWing jumper change described above has not been physically verified with this firmware. Do not add external pull-ups or change this jumper/pin assignment without confirming reset and boot behavior on the finished assembly.
 
 Hardware behavior is unverified in this repository. Compilation does not prove the pin mapping, panel behavior, or power safety.
