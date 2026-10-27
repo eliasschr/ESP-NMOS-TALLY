@@ -16,4 +16,21 @@ The device tries station Wi-Fi for 20 seconds. Failure uses a non-blocking, boun
 
 The connected-network dashboard is status-only. To change credentials or use manual test controls, enter `PROVISION` from USB serial. Do not erase LittleFS for routine recovery; reserve a physical filesystem erase for controlled servicing.
 
+## Local LED diagnostics
+
+Use USB serial at 115200 baud to test the actual tally state machine and NeoPixel renderer without network connectivity:
+
+```text
+DIAGNOSTICS ON
+TALLY PROGRAM
+LED TEST
+EXIT
+```
+
+Commands are case-insensitive and must end with Enter. `HELP` lists all commands; `STATUS` reports tally, diagnostic-session, and LED-test state only, never stored Wi-Fi credentials or secrets. `PROVISION` retains its existing behavior and is independent of diagnostics.
+
+`DIAGNOSTICS ON` is required before `TALLY PROGRAM`, `TALLY PREVIEW`, `TALLY WARNING`, `TALLY IDENTIFY`, `TALLY OFF`, or `LED TEST`. This explicit local session prevents an accidental serial line from overriding normal control. `EXIT` and `DIAGNOSTICS OFF` cancel an active LED test, restore the tally state held before diagnostics started, and return to normal application control. The session and its selected tally state are not persisted.
+
+`LED TEST` is non-blocking: red, green, blue, amber, white at the existing 32/255 maximum brightness, then off are each requested for approximately one second. You can type `EXIT` or a `TALLY` command while it is running. Serial output identifies render requests only; inspect the LEDs to confirm physical output.
+
 For an ESP32 browser simulation, follow [Wokwi simulation](wokwi-simulation.md). It uses the same serial command and security model; Wokwi does not make serial input equivalent to a physical access-control guarantee.

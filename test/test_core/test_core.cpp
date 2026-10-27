@@ -8,6 +8,7 @@
 #include "network/ConnectionState.h"
 #include "platform/BoardConfiguration.h"
 #include "security/ProvisioningAuth.h"
+#include "serial/SerialDiagnostics.h"
 #include "tally/TallyState.h"
 #include "web/RequestValidation.h"
 
@@ -33,6 +34,90 @@ void test_state_parser_rejects_unknown_value() {
   TEST_ASSERT_FALSE(tally::StateMachine::parse(nullptr, parsed));
   TEST_ASSERT_TRUE(tally::StateMachine::parse("WARNING", parsed));
   TEST_ASSERT_EQUAL(tally::State::Warning, parsed);
+}
+
+void test_serial_commands_are_case_insensitive_and_map_states() {
+  const char* commands[] = {"tally program", "  tally  pReViEw ", "TALLY WARNING",
+                            "TaLlY identify", "TALLY OFF"};
+  const tally::State states[] = {tally::State::Program, tally::State::Preview,
+                                 tally::State::Warning, tally::State::Identify, tally::State::Off};
+  for (size_t index = 0; index < sizeof(commands) / sizeof(commands[0]); ++index) {
+    const serial::Command command = serial::parseCommand(commands[index]);
+    TEST_ASSERT_EQUAL(serial::CommandType::SetTally, command.type);
+    TEST_ASSERT_EQUAL(states[index], command.state);
+  }
+  TEST_ASSERT_EQUAL(serial::CommandType::LedTest, serial::parseCommand("led test").type);
+  TEST_ASSERT_EQUAL(serial::CommandType::Provision, serial::parseCommand("PrOvIsIoN").type);
+  TEST_ASSERT_EQUAL(serial::CommandType::EnterDiagnostics, serial::parseCommand("diagnostics on").type);
+  TEST_ASSERT_EQUAL(serial::CommandType::ExitDiagnostics, serial::parseCommand("EXIT").type);
+}
+
+void test_serial_commands_reject_invalid_and_empty_input() {
+  TEST_ASSERT_EQUAL(serial::CommandType::Empty, serial::parseCommand(" \t").type);
+  TEST_ASSERT_EQUAL(serial::CommandType::Invalid, serial::parseCommand("TALLY PURPLE").type);
+  TEST_ASSERT_EQUAL(serial::CommandType::Invalid, serial::parseCommand("LED TEST NOW").type);
+  TEST_ASSERT_EQUAL(serial::CommandType::Invalid, serial::parseCommand(nullptr).type);
+}
+
+void test_serial_input_buffer_accepts_lf_and_crlf() {
+  serial::InputBuffer buffer;
+  TEST_ASSERT_EQUAL(serial::InputEvent::None, buffer.append('H'));
+  TEST_ASSERT_EQUAL(serial::InputEvent::None, buffer.append('E'));
+  TEST_ASSERT_EQUAL(serial::InputEvent::None, buffer.append('\r'));
+  TEST_ASSERT_EQUAL(serial::InputEvent::LineReady, buffer.append('\n'));
+  TEST_ASSERT_EQUAL_STRING("HE", buffer.line());
+}
+
+void test_serial_input_buffer_rejects_oversized_commands() {
+  serial::InputBuffer buffer;
+  for (size_t index = 0; index <= serial::kMaximumCommandLength; ++index)
+    TEST_ASSERT_EQUAL(serial::InputEvent::None, buffer.append('X'));
+  TEST_ASSERT_EQUAL(serial::InputEvent::None, buffer.append('X'));
+  TEST_ASSERT_EQUAL(serial::InputEvent::Oversized, buffer.append('\n'));
+}
+
+void test_diagnostic_session_requires_explicit_authorization_and_can_exit() {
+  serial::DiagnosticSession session;
+  TEST_ASSERT_FALSE(session.startLedTest(0, tally::State::Program));
+  TEST_ASSERT_TRUE(session.enter(tally::State::Preview));
+  TEST_ASSERT_TRUE(session.active());
+  tally::State restored = tally::State::Off;
+  TEST_ASSERT_TRUE(session.exit(restored));
+  TEST_ASSERT_EQUAL(tally::State::Preview, restored);
+  TEST_ASSERT_FALSE(session.active());
+}
+
+void test_led_test_cancellation_restores_previous_state() {
+  serial::DiagnosticSession session;
+  TEST_ASSERT_TRUE(session.enter(tally::State::Off));
+  TEST_ASSERT_TRUE(session.startLedTest(100, tally::State::Warning));
+  TEST_ASSERT_TRUE(session.ledTestActive());
+  tally::State restored = tally::State::Off;
+  TEST_ASSERT_TRUE(session.cancelLedTest(restored));
+  TEST_ASSERT_EQUAL(tally::State::Warning, restored);
+  TEST_ASSERT_FALSE(session.ledTestActive());
+}
+
+void test_led_test_sequences_without_blocking() {
+  serial::DiagnosticSession session;
+  TEST_ASSERT_TRUE(session.enter(tally::State::Off));
+  TEST_ASSERT_TRUE(session.startLedTest(100, tally::State::Program));
+  TEST_ASSERT_EQUAL_STRING("RED", session.ledTestOutput().name);
+  tally::State restored = tally::State::Off;
+  TEST_ASSERT_FALSE(session.updateLedTest(1099, restored));
+  TEST_ASSERT_TRUE(session.updateLedTest(1100, restored));
+  TEST_ASSERT_EQUAL_STRING("GREEN", session.ledTestOutput().name);
+  TEST_ASSERT_TRUE(session.updateLedTest(2100, restored));
+  TEST_ASSERT_EQUAL_STRING("BLUE", session.ledTestOutput().name);
+  TEST_ASSERT_TRUE(session.updateLedTest(3100, restored));
+  TEST_ASSERT_EQUAL_STRING("AMBER", session.ledTestOutput().name);
+  TEST_ASSERT_TRUE(session.updateLedTest(4100, restored));
+  TEST_ASSERT_EQUAL_STRING("WHITE", session.ledTestOutput().name);
+  TEST_ASSERT_TRUE(session.updateLedTest(5100, restored));
+  TEST_ASSERT_EQUAL_STRING("OFF", session.ledTestOutput().name);
+  TEST_ASSERT_TRUE(session.updateLedTest(6100, restored));
+  TEST_ASSERT_FALSE(session.ledTestActive());
+  TEST_ASSERT_EQUAL(tally::State::Program, restored);
 }
 
 void test_state_colors_match_documented_tally_states() {
@@ -154,6 +239,13 @@ int main(int, char**) {
   RUN_TEST(test_initial_state_is_off);
   RUN_TEST(test_transition_changes_only_when_needed);
   RUN_TEST(test_state_parser_rejects_unknown_value);
+  RUN_TEST(test_serial_commands_are_case_insensitive_and_map_states);
+  RUN_TEST(test_serial_commands_reject_invalid_and_empty_input);
+  RUN_TEST(test_serial_input_buffer_accepts_lf_and_crlf);
+  RUN_TEST(test_serial_input_buffer_rejects_oversized_commands);
+  RUN_TEST(test_diagnostic_session_requires_explicit_authorization_and_can_exit);
+  RUN_TEST(test_led_test_cancellation_restores_previous_state);
+  RUN_TEST(test_led_test_sequences_without_blocking);
   RUN_TEST(test_state_colors_match_documented_tally_states);
   RUN_TEST(test_default_configuration_is_valid_but_unprovisioned);
   RUN_TEST(test_configuration_rejects_invalid_schema_and_unterminated_name);

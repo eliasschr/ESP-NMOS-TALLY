@@ -56,6 +56,22 @@ Open the USB serial console at 115200 baud and enter `PROVISION`. The device pri
 
 The AP never starts automatically after a normal station disconnect. USB serial access can therefore recover a device without knowing previous Wi-Fi credentials. See [getting started](docs/getting-started.md) and [security notes](docs/security.md).
 
+## Local serial diagnostics
+
+The same 115200-baud USB serial interface can exercise the real tally state machine and NeoPixel renderer without Wi-Fi, HTTP, or MQTT. Enter `DIAGNOSTICS ON` first; this intentionally limits LED control to a locally authorized serial session. `EXIT` (or `DIAGNOSTICS OFF`) restores the tally state from before the session and returns control to the normal application path. The session is never saved to flash.
+
+| Command | Purpose |
+| --- | --- |
+| `HELP` | List commands. |
+| `STATUS` | Show only the current tally and diagnostic-test state; it never prints credentials or secrets. |
+| `PROVISION` | Preserve the existing serial-authorized Wi-Fi provisioning flow. |
+| `DIAGNOSTICS ON` | Authorize one temporary local diagnostic session. |
+| `TALLY PROGRAM`, `TALLY PREVIEW`, `TALLY WARNING`, `TALLY IDENTIFY`, `TALLY OFF` | Set the temporary diagnostic tally output. |
+| `LED TEST` | Run red, green, blue, amber, brightness-limited white, and off for about one second each. |
+| `EXIT` / `DIAGNOSTICS OFF` | Cancel a test if necessary and leave diagnostics. |
+
+Commands are case-insensitive and line-delimited. The firmware confirms render requests, not physical LED success; visually verify the matrix. `LED TEST` is non-blocking, accepts subsequent commands, and uses the existing conservative 32/255 brightness cap.
+
 ## Tally states
 
 | State | Display color |
@@ -74,7 +90,7 @@ These application display states are not an AMWA IS-07 color mapping.
 pio test -e native
 ```
 
-Native tests cover state/configuration validation, corruption detection, brightness limits, request validation, and reconnection policy. Firmware compilation and native tests do not validate ESP8266 Wi-Fi, HTTP parser behavior, LED, or power behavior.
+Native tests cover state/configuration validation, corruption detection, brightness limits, request validation, reconnection policy, bounded serial parsing, diagnostic authorization, and non-blocking LED-test sequencing. Firmware compilation and native tests do not validate ESP8266 Wi-Fi, HTTP parser behavior, LED, or power behavior.
 
 Successful CI runs retain the ESP8266 `firmware.bin` as a workflow artifact for inspection or controlled test flashing; they do not publish a release or deploy firmware.
 

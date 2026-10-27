@@ -30,7 +30,8 @@ The ESP32 Arduino LittleFS implementation mounts the partition labelled `spiffs`
 2. Replace its circuit with the contents of `wokwi/diagram.json` (or import that file with the Diagram Editor).
 3. Open the command palette with **F1**, select **Upload Firmware and Start Simulation**, and select `dist/esp-nmos-tally-wokwi.bin`.
 4. Open the Serial Monitor at 115200 baud. Startup logs identify LittleFS availability and provisioning state without printing saved Wi-Fi credentials.
-5. Enter `PROVISION` followed by Enter to start the normal ten-minute setup session. The console prints the temporary AP secret, and the matrix self-test advances through red, green, amber, blue, and off without blocking the main loop.
+5. Enter `DIAGNOSTICS ON` followed by Enter, then send `TALLY PROGRAM`, `TALLY PREVIEW`, `TALLY WARNING`, `TALLY IDENTIFY`, or `TALLY OFF` to view the real renderer output. Use `LED TEST` to request red, green, blue, amber, white at the 32/255 safety limit, and off for approximately one second each. It remains responsive: `EXIT` cancels the test and restores normal control.
+6. Enter `PROVISION` only when you specifically need the normal ten-minute setup session. It still prints a temporary secret; diagnostic commands neither expose nor modify stored Wi-Fi credentials.
 
 ## Expected LED behavior
 
@@ -42,7 +43,7 @@ The ESP32 Arduino LittleFS implementation mounts the partition labelled `spiffs`
 | IDENTIFY | Blue |
 | OFF | Disabled/off |
 
-Manual tally controls remain protected by the real provisioning session, same-origin check, secret header, and authorization cooldown. There is no simulator-only route, fixed password, or authentication bypass.
+HTTP manual tally controls remain protected by the real provisioning session, same-origin check, secret header, and authorization cooldown. Serial diagnostics use a separate, explicit `DIAGNOSTICS ON` local session and are not exposed through HTTP. There is no simulator-only route, fixed password, or authentication bypass.
 
 ## Limitations and troubleshooting
 

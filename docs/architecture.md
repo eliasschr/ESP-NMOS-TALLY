@@ -2,6 +2,8 @@
 
 The firmware keeps policy separate from hardware. `tally::StateMachine` is a small, Arduino-independent state/value component and is tested on the host. `led::NeoPixelRenderer` maps a state color to the 32-pixel FeatherWing. Network connection management and HTTP handling do not write LEDs directly; `Application` coordinates them in its non-blocking loop.
 
+`serial::InputBuffer`, `parseCommand`, and `DiagnosticSession` likewise remain Arduino-independent. They bound and parse USB lines, gate diagnostics behind an explicit RAM-only session, and schedule the LED test without calling hardware APIs. `Application` is the only owner of serial I/O and calls the existing renderer for both normal tally states and the test sequence. This keeps parsing and authorization testable without creating a simulator-only tally or LED implementation.
+
 ```text
 USB `PROVISION` -> Network controller -> temporary setup AP
                                            |
