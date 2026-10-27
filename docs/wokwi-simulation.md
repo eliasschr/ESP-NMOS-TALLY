@@ -14,13 +14,15 @@ Install PlatformIO Core and run from the repository root:
 ./scripts/build-wokwi.sh
 ```
 
-The script builds `esp32dev`, builds the LittleFS image, reads the `littlefs` offset from `partitions_wokwi.csv`, merges bootloader, partition table, boot metadata, application, and LittleFS with PlatformIO's esptool, and validates the component regions and 4 MiB size limit. The ignored output is:
+The script builds `esp32dev`, builds the LittleFS image, reads the `spiffs` offset from `partitions_wokwi.csv`, merges bootloader, partition table, boot metadata, application, and LittleFS with PlatformIO's esptool, and validates the decoded partition table, component regions, byte-for-byte placement, and exact 4 MiB size. The ignored output is:
 
 ```text
 dist/esp-nmos-tally-wokwi.bin
 ```
 
 The Wokwi board and partition table both use 4 MiB flash. The script intentionally does not assume that `firmware.bin` contains the dashboard filesystem.
+
+The ESP32 Arduino LittleFS implementation mounts the partition labelled `spiffs`, even though its filesystem format is LittleFS. The Wokwi layout therefore uses the `spiffs` label with the ESP-IDF `data/spiffs` subtype at `0x1d0000`; the generated LittleFS image occupies its complete 0x230000-byte partition. This label is part of the runtime interface, not a filesystem-format choice.
 
 ## Upload and run in the browser
 
@@ -48,4 +50,4 @@ Manual tally controls remain protected by the real provisioning session, same-or
 - Browser Wokwi simulations may not make the ESP32 private Wi-Fi address reachable from the host browser. Do not expose the device through a public proxy merely to reach the web UI. Use native tests for shared request validation and test the actual dashboard on a controlled physical network when available.
 - If the dashboard reports that resources are unavailable, rebuild with `./scripts/build-wokwi.sh`; it explicitly runs the LittleFS build before merging.
 - If Wokwi reports a flash/partition problem, ensure the circuit still declares `flashSize: "4"` and upload the complete merged image rather than `.pio/build/esp32dev/firmware.bin`.
-- This repository has not recorded a successful browser execution or physical ESP32 test. Compilation and image generation are distinct from those forms of verification.
+- The 2026-10-27 boot-loop investigation corrected two static defects: the filesystem was formerly labelled `littlefs`, which Arduino-ESP32 does not mount by default, and the unprovisioned path selected `WIFI_OFF` from the initial null mode before starting the HTTP listener. It now initializes an unconnected STA interface so the TCP/IP task exists; it does not start an AP or connect to a network. Static image validation does not prove browser runtime behavior. Retest the uploaded image in Wokwi before recording a simulation pass.

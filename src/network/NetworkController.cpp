@@ -21,7 +21,13 @@ void Controller::begin(const config::DeviceConfig& configuration) {
   platform::prepareWiFi();
   const ConnectionAction action = connection_.begin(config::hasNetwork(configuration_), millis());
   if (action == ConnectionAction::Connect) startStationAttempt();
-  else WiFi.mode(WIFI_OFF);
+  else {
+    // WebServer opens its listener during application startup. On ESP32 the
+    // TCP/IP task is created with the STA interface; selecting WIFI_OFF from
+    // the initial null mode leaves that task uninitialized.
+    // This starts neither a station connection nor a provisioning AP.
+    WiFi.mode(WIFI_STA);
+  }
 }
 
 void Controller::connect(const config::DeviceConfig& configuration) {

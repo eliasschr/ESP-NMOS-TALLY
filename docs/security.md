@@ -8,6 +8,8 @@ USB serial access is the physical authorization boundary. The `PROVISION` comman
 
 The ESP32 target keeps these controls unchanged. It obtains each provisioning-secret byte from ESP32 `esp_random()` rather than Arduino `random()` or device-identifying data. As with ESP8266, Arduino Wi-Fi credential persistence is disabled; credentials are stored only by the validated LittleFS configuration record. Wokwi serial access is a simulator control, not a real physical-authorization boundary, and must not be used to evaluate deployment security.
 
+Before provisioning, ESP32 initializes an unconnected STA interface solely to initialize the TCP/IP task required by the HTTP listener. It does not call `WiFi.begin()`, create an AP, or expose state-changing controls. The AP and its provisioning secret still require the serial `PROVISION` command.
+
 `ESP8266WebServer` parses request bodies before route handlers run. This firmware rejects bodies over 256 bytes in handlers but cannot claim a pre-parser allocation bound with that library. The setup AP is time-limited, serial-authorized, and not automatically exposed following a station failure; replacing the web server is required before claiming strict pre-parse body limits.
 
 ## Known limitations
