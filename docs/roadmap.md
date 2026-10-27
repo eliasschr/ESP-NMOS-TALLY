@@ -11,7 +11,7 @@
 - Native logic tests and CI build/test workflow
 - Shared ESP8266/ESP32 Arduino firmware build targets
 - Wokwi ESP32 circuit, full-image generation tooling, and first successful browser runtime check
-- First limited physical ESP8266/NeoPixel FeatherWing check: USB flashing, serial diagnostics, and visible GPIO 2 LED output
+- Limited physical ESP8266/NeoPixel FeatherWing check: USB/CP2104 serial diagnostics, GPIO 2 matrix tally output, rainbow diagnostics, live brightness at 8 and 32, `LED STOP`, and `EXIT`
 
 ## Next development phase
 

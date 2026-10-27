@@ -11,7 +11,7 @@ This document records the first successful physical test of the ESP8266 tally as
 | Test date | 2026-10-27 |
 | Test platform | ESP-NMOS-TALLY on Adafruit Feather HUZZAH ESP8266 |
 | Display hardware | Adafruit NeoPixel FeatherWing 4×8 RGB, 32 RGB LEDs |
-| Firmware source tested | `728a6de56ec6db89ee7be2797067eb370e10d641` plus the local GPIO 2 adjustment recorded by this change |
+| Firmware source tested | `2fbff0968ed17f69638fe09b686bf06795636cb5` |
 | Development host | macOS with PlatformIO Core 6.2.0 |
 | Transport | USB power and CP2104 USB-to-UART serial interface at 115200 baud |
 
@@ -31,8 +31,20 @@ No device MAC address, USB serial number, provisioning secret, or Wi-Fi credenti
 
 - The ESP-NMOS-TALLY startup message appeared on serial.
 - Missing initial configuration was handled.
-- Serial provisioning activation was confirmed.
-- Diagnostic mode was activated successfully.
+- Serial diagnostics, including diagnostic-mode activation, operated successfully.
+
+### User-confirmed diagnostic behavior
+
+The following physical observations were confirmed by the user on the hardware
+listed above. They are not automated test results:
+
+- Firmware startup and USB/CP2104 serial diagnostics succeeded.
+- The 32-pixel NeoPixel matrix displayed tally commands and the animated rainbow.
+- `LED BRIGHTNESS 8` and `LED BRIGHTNESS 32` adjusted diagnostic output live.
+- `LED STOP` and `EXIT` completed successfully.
+
+The test did not verify WLAN onboarding, MQTT, NMOS IS-07, current consumption,
+or long-term reliability.
 
 ### LED output and GPIO discovery
 
