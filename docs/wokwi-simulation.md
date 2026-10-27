@@ -32,7 +32,7 @@ The ESP32 Arduino LittleFS implementation mounts the partition labelled `spiffs`
 2. Replace its circuit with the contents of `wokwi/diagram.json` (or import that file with the Diagram Editor).
 3. Open the command palette with **F1**, select **Upload Firmware and Start Simulation**, and select `dist/esp-nmos-tally-wokwi.bin`.
 4. Open the Serial Monitor at 115200 baud. Confirm boot and LittleFS initialization, then enter `PROVISION` and confirm that the provisioning AP activation is reported. Do not record the temporary secret shown by this command.
-5. Enter `DIAGNOSTICS ON` followed by Enter, then send `TALLY PROGRAM`, `TALLY PREVIEW`, `TALLY WARNING`, `TALLY IDENTIFY`, or `TALLY OFF` to view the real renderer output. Use `LED TEST` to request red, green, blue, amber, white at the 32/255 safety limit, and off for approximately one second each. It remains responsive: `EXIT` cancels the test and restores normal control.
+5. Enter `DIAGNOSTICS ON` followed by Enter, then send `TALLY PROGRAM`, `TALLY PREVIEW`, `TALLY WARNING`, `TALLY IDENTIFY`, or `TALLY OFF` to view the real renderer output. Use `LED TEST` to request red, green, blue, amber, white at the 32/255 safety limit, and off for approximately one second each. `LED RAINBOW` shows a continuously moving distinct-hue gradient across all 32 pixels at about 25 FPS; `LED STOP`, a `TALLY` command, `LED TEST`, or `EXIT` cancels it. It remains responsive: `EXIT` cancels any diagnostic effect and restores normal control.
 6. The `PROVISION` command starts the normal ten-minute setup session. It prints a temporary secret; diagnostic commands neither expose nor modify stored Wi-Fi credentials.
 
 ## Recorded browser runtime result
@@ -56,6 +56,8 @@ The full automatic `LED TEST` timing sequence was requested but not independentl
 | WARNING | Amber |
 | IDENTIFY | Blue |
 | OFF | Disabled/off |
+
+`LED RAINBOW` uses the same renderer and serpentine logical-to-physical mapping as the physical display. The Wokwi `brightness: "5"` attribute only improves browser visibility; it does not permit changing the firmware's 32/255 brightness cap or the saved device brightness.
 
 HTTP manual tally controls remain protected by the real provisioning session, same-origin check, secret header, and authorization cooldown. Serial diagnostics use a separate, explicit `DIAGNOSTICS ON` local session and are not exposed through HTTP. There is no simulator-only route, fixed password, or authentication bypass.
 

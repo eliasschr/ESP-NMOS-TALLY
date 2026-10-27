@@ -5,6 +5,7 @@
 #include "config/DeviceConfig.h"
 #include "config/ConfigRecord.h"
 #include "config/ConfigRecovery.h"
+#include "led/RainbowAnimation.h"
 #include "network/ConnectionState.h"
 #include "platform/BoardConfiguration.h"
 #include "security/ProvisioningAuth.h"
@@ -47,6 +48,8 @@ void test_serial_commands_are_case_insensitive_and_map_states() {
     TEST_ASSERT_EQUAL(states[index], command.state);
   }
   TEST_ASSERT_EQUAL(serial::CommandType::LedTest, serial::parseCommand("led test").type);
+  TEST_ASSERT_EQUAL(serial::CommandType::LedRainbow, serial::parseCommand("LED RAINBOW").type);
+  TEST_ASSERT_EQUAL(serial::CommandType::LedStop, serial::parseCommand("led stop").type);
   TEST_ASSERT_EQUAL(serial::CommandType::Provision, serial::parseCommand("PrOvIsIoN").type);
   TEST_ASSERT_EQUAL(serial::CommandType::EnterDiagnostics, serial::parseCommand("diagnostics on").type);
   TEST_ASSERT_EQUAL(serial::CommandType::ExitDiagnostics, serial::parseCommand("EXIT").type);
@@ -56,6 +59,7 @@ void test_serial_commands_reject_invalid_and_empty_input() {
   TEST_ASSERT_EQUAL(serial::CommandType::Empty, serial::parseCommand(" \t").type);
   TEST_ASSERT_EQUAL(serial::CommandType::Invalid, serial::parseCommand("TALLY PURPLE").type);
   TEST_ASSERT_EQUAL(serial::CommandType::Invalid, serial::parseCommand("LED TEST NOW").type);
+  TEST_ASSERT_EQUAL(serial::CommandType::Invalid, serial::parseCommand("LED RAINBOW NOW").type);
   TEST_ASSERT_EQUAL(serial::CommandType::Invalid, serial::parseCommand(nullptr).type);
 }
 
@@ -79,12 +83,82 @@ void test_serial_input_buffer_rejects_oversized_commands() {
 void test_diagnostic_session_requires_explicit_authorization_and_can_exit() {
   serial::DiagnosticSession session;
   TEST_ASSERT_FALSE(session.startLedTest(0, tally::State::Program));
+  TEST_ASSERT_FALSE(session.startRainbow(tally::State::Program));
   TEST_ASSERT_TRUE(session.enter(tally::State::Preview));
   TEST_ASSERT_TRUE(session.active());
   tally::State restored = tally::State::Off;
   TEST_ASSERT_TRUE(session.exit(restored));
   TEST_ASSERT_EQUAL(tally::State::Preview, restored);
   TEST_ASSERT_FALSE(session.active());
+}
+
+void test_rainbow_session_lifecycle_cancels_other_diagnostic_effects() {
+  serial::DiagnosticSession session;
+  TEST_ASSERT_TRUE(session.enter(tally::State::Preview));
+  TEST_ASSERT_TRUE(session.startRainbow(tally::State::Warning));
+  TEST_ASSERT_TRUE(session.rainbowActive());
+  TEST_ASSERT_TRUE(session.startRainbow(tally::State::Program));
+  tally::State restored = tally::State::Off;
+  TEST_ASSERT_TRUE(session.stopRainbow(restored));
+  TEST_ASSERT_EQUAL(tally::State::Program, restored);
+  TEST_ASSERT_FALSE(session.rainbowActive());
+  TEST_ASSERT_TRUE(session.startRainbow(tally::State::Warning));
+  TEST_ASSERT_TRUE(session.startLedTest(100, tally::State::Identify));
+  TEST_ASSERT_FALSE(session.rainbowActive());
+  TEST_ASSERT_TRUE(session.startRainbow(tally::State::Warning));
+  TEST_ASSERT_TRUE(session.cancelEffects(restored));
+  TEST_ASSERT_EQUAL(tally::State::Warning, restored);
+  TEST_ASSERT_FALSE(session.rainbowActive());
+}
+
+void test_diagnostic_exit_stops_rainbow_effect() {
+  serial::DiagnosticSession session;
+  TEST_ASSERT_TRUE(session.enter(tally::State::Preview));
+  TEST_ASSERT_TRUE(session.startRainbow(tally::State::Program));
+  tally::State restored = tally::State::Off;
+  TEST_ASSERT_TRUE(session.exit(restored));
+  TEST_ASSERT_EQUAL(tally::State::Preview, restored);
+  TEST_ASSERT_FALSE(session.rainbowActive());
+}
+
+void test_rainbow_hsv_color_boundaries_and_gradient() {
+  const tally::RgbColor red = led::RainbowAnimation::hsvToRgb(0);
+  TEST_ASSERT_EQUAL_UINT8(255, red.red);
+  TEST_ASSERT_EQUAL_UINT8(0, red.green);
+  TEST_ASSERT_EQUAL_UINT8(0, red.blue);
+  const tally::RgbColor cyan = led::RainbowAnimation::hsvToRgb(128);
+  TEST_ASSERT_EQUAL_UINT8(0, cyan.red);
+  TEST_ASSERT_EQUAL_UINT8(255, cyan.green);
+  TEST_ASSERT_EQUAL_UINT8(255, cyan.blue);
+  const tally::RgbColor blue = led::RainbowAnimation::hsvToRgb(171);
+  TEST_ASSERT_EQUAL_UINT8(2, blue.red);
+  TEST_ASSERT_EQUAL_UINT8(0, blue.green);
+  TEST_ASSERT_EQUAL_UINT8(255, blue.blue);
+  led::RainbowAnimation rainbow;
+  rainbow.start(0);
+  TEST_ASSERT_TRUE(rainbow.update(0));
+  const tally::RgbColor first = rainbow.colorForPixel(0, 32);
+  const tally::RgbColor second = rainbow.colorForPixel(1, 32);
+  TEST_ASSERT_TRUE(first.red != second.red || first.green != second.green || first.blue != second.blue);
+}
+
+void test_rainbow_timing_is_non_blocking_and_rollover_safe() {
+  led::RainbowAnimation rainbow;
+  rainbow.start(100);
+  TEST_ASSERT_TRUE(rainbow.update(100));
+  TEST_ASSERT_FALSE(rainbow.update(139));
+  TEST_ASSERT_TRUE(rainbow.update(140));
+  const tally::RgbColor initial = rainbow.colorForPixel(0, 32);
+  TEST_ASSERT_TRUE(rainbow.update(180));
+  const tally::RgbColor moved = rainbow.colorForPixel(0, 32);
+  TEST_ASSERT_TRUE(initial.red != moved.red || initial.green != moved.green || initial.blue != moved.blue);
+  rainbow.start(UINT32_MAX - 10U);
+  TEST_ASSERT_TRUE(rainbow.update(UINT32_MAX - 10U));
+  TEST_ASSERT_FALSE(rainbow.update(28U));
+  TEST_ASSERT_TRUE(rainbow.update(29U));
+  rainbow.stop();
+  TEST_ASSERT_FALSE(rainbow.active());
+  TEST_ASSERT_FALSE(rainbow.update(70U));
 }
 
 void test_led_test_cancellation_restores_previous_state() {
@@ -246,8 +320,12 @@ int main(int, char**) {
   RUN_TEST(test_serial_input_buffer_accepts_lf_and_crlf);
   RUN_TEST(test_serial_input_buffer_rejects_oversized_commands);
   RUN_TEST(test_diagnostic_session_requires_explicit_authorization_and_can_exit);
+  RUN_TEST(test_rainbow_session_lifecycle_cancels_other_diagnostic_effects);
+  RUN_TEST(test_diagnostic_exit_stops_rainbow_effect);
   RUN_TEST(test_led_test_cancellation_restores_previous_state);
   RUN_TEST(test_led_test_sequences_without_blocking);
+  RUN_TEST(test_rainbow_hsv_color_boundaries_and_gradient);
+  RUN_TEST(test_rainbow_timing_is_non_blocking_and_rollover_safe);
   RUN_TEST(test_state_colors_match_documented_tally_states);
   RUN_TEST(test_default_configuration_is_valid_but_unprovisioned);
   RUN_TEST(test_configuration_rejects_invalid_schema_and_unterminated_name);

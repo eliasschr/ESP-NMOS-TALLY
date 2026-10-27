@@ -76,9 +76,10 @@ Command parseCommand(const char* line) {
   value = skipSpaces(line);
   if (readToken(value, "LED")) {
     value = skipSpaces(value);
-    return readToken(value, "TEST") && hasNoMoreTokens(value)
-               ? Command{CommandType::LedTest, tally::State::Off}
-               : Command{CommandType::Invalid, tally::State::Off};
+    if (readToken(value, "TEST") && hasNoMoreTokens(value)) return {CommandType::LedTest, tally::State::Off};
+    if (readToken(value, "RAINBOW") && hasNoMoreTokens(value)) return {CommandType::LedRainbow, tally::State::Off};
+    if (readToken(value, "STOP") && hasNoMoreTokens(value)) return {CommandType::LedStop, tally::State::Off};
+    return {CommandType::Invalid, tally::State::Off};
   }
   value = skipSpaces(line);
   if (readToken(value, "TALLY")) {
@@ -95,7 +96,7 @@ Command parseCommand(const char* line) {
 }
 
 DiagnosticSession::DiagnosticSession()
-    : active_(false), ledTestActive_(false), ledTestStep_(0), nextLedTestTransitionAt_(0),
+    : active_(false), ledTestActive_(false), rainbowActive_(false), ledTestStep_(0), nextLedTestTransitionAt_(0),
       returnState_(tally::State::Off), preTestState_(tally::State::Off) {}
 
 bool DiagnosticSession::enter(tally::State returnState) {
@@ -109,12 +110,14 @@ bool DiagnosticSession::exit(tally::State& restoredState) {
   if (!active_) return false;
   active_ = false;
   ledTestActive_ = false;
+  rainbowActive_ = false;
   restoredState = returnState_;
   return true;
 }
 
 bool DiagnosticSession::startLedTest(uint32_t now, tally::State returnState) {
   if (!active_ || ledTestActive_) return false;
+  rainbowActive_ = false;
   ledTestActive_ = true;
   ledTestStep_ = 0;
   preTestState_ = returnState;
@@ -127,6 +130,26 @@ bool DiagnosticSession::cancelLedTest(tally::State& restoredState) {
   ledTestActive_ = false;
   restoredState = preTestState_;
   return true;
+}
+
+bool DiagnosticSession::startRainbow(tally::State returnState) {
+  if (!active_) return false;
+  ledTestActive_ = false;
+  preTestState_ = returnState;
+  rainbowActive_ = true;
+  return true;
+}
+
+bool DiagnosticSession::stopRainbow(tally::State& restoredState) {
+  if (!rainbowActive_) return false;
+  rainbowActive_ = false;
+  restoredState = preTestState_;
+  return true;
+}
+
+bool DiagnosticSession::cancelEffects(tally::State& restoredState) {
+  if (cancelLedTest(restoredState)) return true;
+  return stopRainbow(restoredState);
 }
 
 bool DiagnosticSession::updateLedTest(uint32_t now, tally::State& restoredState) {

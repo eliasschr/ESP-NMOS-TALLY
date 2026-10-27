@@ -4,6 +4,7 @@
 
 #include "config/ConfigStore.h"
 #include "led/NeoPixelRenderer.h"
+#include "led/RainbowAnimation.h"
 #include "network/NetworkController.h"
 #include "platform/BoardConfiguration.h"
 #include "serial/SerialDiagnostics.h"
@@ -50,6 +51,7 @@ class Application final : public web::Control {
     web_.handleClient();
     runSelfTest();
     renderIfNeeded();
+    runRainbowAnimation();
   }
 
   const config::DeviceConfig& configuration() const override { return configuration_; }
@@ -99,6 +101,8 @@ class Application final : public web::Control {
       case serial::CommandType::ExitDiagnostics: return exitDiagnostics();
       case serial::CommandType::SetTally: return setDiagnosticTally(command.state);
       case serial::CommandType::LedTest: return startLedTest();
+      case serial::CommandType::LedRainbow: return startRainbow();
+      case serial::CommandType::LedStop: return stopLedEffect();
       case serial::CommandType::Invalid:
         Serial.println(F("ERROR: Unknown command. Type HELP."));
         return;
@@ -107,7 +111,7 @@ class Application final : public web::Control {
 
   void printSerialHelp() const {
     Serial.println(F("INFO: Commands: HELP, STATUS, PROVISION, DIAGNOSTICS ON, DIAGNOSTICS OFF/EXIT"));
-    Serial.println(F("INFO: Diagnostics: TALLY PROGRAM|PREVIEW|WARNING|IDENTIFY|OFF, LED TEST"));
+    Serial.println(F("INFO: Diagnostics: TALLY PROGRAM|PREVIEW|WARNING|IDENTIFY|OFF, LED TEST|RAINBOW|STOP"));
   }
 
   void printSerialStatus() const {
@@ -117,6 +121,8 @@ class Application final : public web::Control {
     Serial.println(diagnostics_.active() ? F("enabled") : F("disabled"));
     Serial.print(F("INFO: LED test: "));
     Serial.println(diagnostics_.ledTestActive() ? F("running") : F("idle"));
+    Serial.print(F("INFO: LED rainbow: "));
+    Serial.println(diagnostics_.rainbowActive() ? F("running") : F("idle"));
   }
 
   void startProvisioning() {
@@ -146,6 +152,7 @@ class Application final : public web::Control {
       Serial.println(F("ERROR: Diagnostics are not enabled."));
       return;
     }
+    rainbow_.stop();
     state_.set(restoredState);
     renderTallyOutput();
     Serial.println(F("INFO: Diagnostics disabled; returned to application control."));
@@ -157,8 +164,10 @@ class Application final : public web::Control {
       return;
     }
     tally::State restoredState = tally::State::Off;
-    if (diagnostics_.cancelLedTest(restoredState))
-      Serial.println(F("INFO: LED test cancelled."));
+    if (diagnostics_.cancelEffects(restoredState)) {
+      rainbow_.stop();
+      Serial.println(F("INFO: LED diagnostic effect cancelled."));
+    }
     state_.set(requestedState);
     renderTallyOutput();
     Serial.print(F("INFO: Tally state set to "));
@@ -175,7 +184,38 @@ class Application final : public web::Control {
       Serial.println(F("ERROR: LED test is already running."));
       return;
     }
+    rainbow_.stop();
     renderLedTestOutput();
+  }
+
+  void startRainbow() {
+    if (!diagnostics_.active()) {
+      Serial.println(F("ERROR: Run DIAGNOSTICS ON before LED RAINBOW."));
+      return;
+    }
+    if (!diagnostics_.startRainbow(state_.state())) {
+      Serial.println(F("ERROR: Could not start LED RAINBOW."));
+      return;
+    }
+    rainbow_.start(millis());
+    renderRainbowFrame();
+    Serial.println(F("INFO: LED rainbow started at 32/255. Use LED STOP or EXIT to cancel."));
+  }
+
+  void stopLedEffect() {
+    if (!diagnostics_.active()) {
+      Serial.println(F("ERROR: Run DIAGNOSTICS ON before LED STOP."));
+      return;
+    }
+    tally::State restoredState = tally::State::Off;
+    if (!diagnostics_.cancelEffects(restoredState)) {
+      Serial.println(F("INFO: No diagnostic LED effect is running."));
+      return;
+    }
+    rainbow_.stop();
+    state_.set(restoredState);
+    renderTallyOutput();
+    Serial.println(F("INFO: LED diagnostic effect stopped; restored diagnostic tally state."));
   }
 
   void runLedTest() {
@@ -190,12 +230,24 @@ class Application final : public web::Control {
     Serial.println(F("INFO: LED test complete; restored diagnostic tally state."));
   }
 
+  void runRainbowAnimation() {
+    if (!diagnostics_.rainbowActive()) return;
+    if (rainbow_.update(millis())) renderRainbowFrame();
+  }
+
   void renderLedTestOutput() {
     const serial::LedTestOutput output = diagnostics_.ledTestOutput();
     renderer_.render(output.color, config::kMaximumBrightness);
     Serial.print(F("INFO: LED test output requested: "));
     Serial.print(output.name);
     Serial.println(F(" at 32/255; verify LEDs visually."));
+  }
+
+  void renderRainbowFrame() {
+    tally::RgbColor colors[kLedCount];
+    for (uint8_t pixel = 0; pixel < kLedCount; ++pixel)
+      colors[pixel] = rainbow_.colorForPixel(pixel, kLedCount);
+    renderer_.renderPixels(colors, kLedCount, config::kMaximumBrightness);
   }
 
   void logRenderRequested(const char* name) const {
@@ -217,7 +269,7 @@ class Application final : public web::Control {
   void renderIfNeeded() {
     // A test drives the renderer directly, including white which is not a
     // tally state. Consume pending normal-state changes until it completes.
-    if (diagnostics_.ledTestActive()) {
+    if (diagnostics_.ledTestActive() || diagnostics_.rainbowActive()) {
       state_.consumeChange();
       return;
     }
@@ -237,6 +289,7 @@ class Application final : public web::Control {
   web::DeviceWebServer web_;
   serial::InputBuffer serialInput_;
   serial::DiagnosticSession diagnostics_;
+  led::RainbowAnimation rainbow_;
   uint8_t selfTestStep_;
   uint32_t selfTestStartedAt_;
 };

@@ -27,4 +27,30 @@ void NeoPixelRenderer::render(tally::RgbColor color, uint8_t brightness) {
   lastBrightness_ = brightness;
 }
 
+void NeoPixelRenderer::renderPixels(const tally::RgbColor* logicalColors, uint8_t count,
+                                    uint8_t brightness) {
+  if (!available_ || logicalColors == nullptr || count != pixels_.numPixels()) return;
+  brightness = config::clampBrightness(brightness);
+  pixels_.setBrightness(brightness);
+  for (uint8_t logicalPixel = 0; logicalPixel < count; ++logicalPixel) {
+    const tally::RgbColor color = logicalColors[logicalPixel];
+    pixels_.setPixelColor(logicalToPhysicalPixel(logicalPixel),
+                          pixels_.Color(color.red, color.green, color.blue));
+  }
+  pixels_.show();
+  // A gradient does not have one cacheable color. Invalidate the solid-color
+  // cache so normal tally rendering always restores every physical pixel.
+  lastColor_ = 0xffffffffUL;
+  lastBrightness_ = brightness;
+}
+
+uint8_t NeoPixelRenderer::logicalToPhysicalPixel(uint8_t logicalPixel) {
+  constexpr uint8_t kColumns = 8;
+  const uint8_t row = logicalPixel / kColumns;
+  const uint8_t column = logicalPixel % kColumns;
+  // The 4x8 matrix is wired in alternating row directions, matching Wokwi's
+  // checked-in serpentine layout and keeping the visual gradient continuous.
+  return row % 2 == 0 ? logicalPixel : static_cast<uint8_t>(row * kColumns + kColumns - 1 - column);
+}
+
 }  // namespace led

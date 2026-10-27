@@ -35,6 +35,8 @@ enum class CommandType : uint8_t {
   ExitDiagnostics,
   SetTally,
   LedTest,
+  LedRainbow,
+  LedStop,
 };
 
 struct Command {
@@ -57,10 +59,14 @@ class DiagnosticSession {
 
   bool active() const { return active_; }
   bool ledTestActive() const { return ledTestActive_; }
+  bool rainbowActive() const { return rainbowActive_; }
   bool enter(tally::State returnState);
   bool exit(tally::State& restoredState);
   bool startLedTest(uint32_t now, tally::State returnState);
   bool cancelLedTest(tally::State& restoredState);
+  bool startRainbow(tally::State returnState);
+  bool stopRainbow(tally::State& restoredState);
+  bool cancelEffects(tally::State& restoredState);
   // Returns true only when the next output must be rendered. Completion
   // restores the pre-test tally state and also returns true.
   bool updateLedTest(uint32_t now, tally::State& restoredState);
@@ -71,6 +77,7 @@ class DiagnosticSession {
 
   bool active_;
   bool ledTestActive_;
+  bool rainbowActive_;
   uint8_t ledTestStep_;
   uint32_t nextLedTestTransitionAt_;
   tally::State returnState_;

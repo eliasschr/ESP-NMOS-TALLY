@@ -70,10 +70,12 @@ The same 115200-baud USB serial interface can exercise the real tally state mach
 | `PROVISION` | Preserve the existing serial-authorized Wi-Fi provisioning flow. |
 | `DIAGNOSTICS ON` | Authorize one temporary local diagnostic session. |
 | `TALLY PROGRAM`, `TALLY PREVIEW`, `TALLY WARNING`, `TALLY IDENTIFY`, `TALLY OFF` | Set the temporary diagnostic tally output. |
-| `LED TEST` | Run red, green, blue, amber, brightness-limited white, and off for about one second each. |
-| `EXIT` / `DIAGNOSTICS OFF` | Cancel a test if necessary and leave diagnostics. |
+| `LED TEST` | Run red, green, blue, amber, brightness-limited white, and off for about one second each. It replaces a rainbow effect. |
+| `LED RAINBOW` | Start a continuously moving full-matrix RGB hue gradient for LED diagnostics. |
+| `LED STOP` | Stop the active diagnostic LED effect and restore the diagnostic tally state. |
+| `EXIT` / `DIAGNOSTICS OFF` | Cancel an active diagnostic LED effect and leave diagnostics. |
 
-Commands are case-insensitive and line-delimited. The firmware confirms render requests, not physical LED success; visually verify the matrix. `LED TEST` is non-blocking, accepts subsequent commands, and uses the existing conservative 32/255 brightness cap.
+Commands are case-insensitive and line-delimited. The firmware confirms render requests, not physical LED success; visually verify the matrix. `LED TEST` and `LED RAINBOW` are non-blocking and accept subsequent commands. The rainbow assigns a distinct HSV hue to every logical pixel and shifts the complete gradient at about 25 FPS. It always uses the existing conservative 32/255 physical brightness cap and never changes the saved brightness setting.
 
 ## Tally states
 
