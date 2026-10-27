@@ -11,7 +11,7 @@ It is not yet an NMOS device. MQTT and AMWA IS-07 integration are planned separa
 | ESP8266 firmware, serial-authorized provisioning, status dashboard | Yes | Yes | Yes | No |
 | ESP32 `esp32dev` firmware | Yes | Yes | Shared logic | No |
 | Wokwi ESP32 circuit and merged-image build tooling | Yes | Yes | N/A | No |
-| Wokwi browser execution | Configuration supplied | Not run | N/A | N/A |
+| Wokwi browser execution (ESP32) | Yes | Manual simulation | N/A | No |
 | Manual tally controls and NeoPixel renderer | Yes | Yes | Yes | No |
 | Versioned configuration validation | Yes | Yes | Yes | No |
 | MQTT / NMOS IS-07 | No, planned | N/A | N/A | No |
@@ -49,6 +49,8 @@ pio run -e esp32dev
 ```
 
 The latter builds the application and its LittleFS image, then emits an ignored complete flash image at `dist/esp-nmos-tally-wokwi.bin`. See [Wokwi simulation](docs/wokwi-simulation.md) for import/upload steps and simulation limitations.
+
+The first browser runtime check was run against firmware commit `0a9058e59b7d102b6a68dee2c8c6679eb04e5ac7`. It confirmed an ESP32 boot, LittleFS initialization, serial provisioning activation, and manual serial tally colors on the simulated 4×8 matrix. This is a Wokwi-only result; it does not verify physical ESP8266 or ESP32 hardware, Wi-Fi, HTTP, MQTT, or NMOS behavior.
 
 ## First start
 

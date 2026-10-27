@@ -20,6 +20,6 @@ Hardware behavior is unverified in this repository. Compilation does not prove t
 
 ## ESP32 DevKit and Wokwi target
 
-`esp32dev` targets a generic 4 MiB ESP32 DevKit. Its LED data output is GPIO 18, not GPIO 15; GPIO 18 is a normal output-capable pin on this target and does not inherit the ESP8266 FeatherWing jumper requirement. The Wokwi circuit uses a 4×8, 32-pixel WS2812-compatible matrix with GPIO 18 to `DIN`, 3.3 V to `VDD`, and ground to `VSS`. Its `serpentine` layout approximates common matrix wiring. The firmware fills all pixels with one color, so matrix orientation does not affect current tally behavior.
+`esp32dev` targets a generic 4 MiB ESP32 DevKit. Its LED data output is GPIO 18, not GPIO 15; GPIO 18 is a normal output-capable pin on this target and does not inherit the ESP8266 FeatherWing jumper requirement. The Wokwi circuit uses a 4×8, 32-pixel WS2812-compatible matrix with GPIO 18 to `DIN`, 5 V to `VDD`, and ground to `VSS`. Its `serpentine` layout approximates common matrix wiring. Wokwi's `brightness: "5"` is a simulator display multiplier, independent of firmware NeoPixel brightness and physical current limits. The firmware fills all pixels with one color, so matrix orientation does not affect current tally behavior.
 
-This is a browser-simulation and compile target only. No ESP32 DevKit, matrix wiring, signal integrity, current draw, boot behavior, or physical LED panel has been tested.
+Wokwi browser execution at commit `0a9058e59b7d102b6a68dee2c8c6679eb04e5ac7` visually confirmed the simulated GPIO 18 output and all documented tally colors. No ESP32 DevKit, matrix wiring, signal integrity, current draw, boot behavior, or physical LED panel has been tested.

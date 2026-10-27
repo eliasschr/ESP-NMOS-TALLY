@@ -10,7 +10,7 @@
 - Non-blocking self-test and NeoPixel rendering
 - Native logic tests and CI build/test workflow
 - Shared ESP8266/ESP32 Arduino firmware build targets
-- Wokwi ESP32 circuit and full-image generation tooling (browser execution pending)
+- Wokwi ESP32 circuit, full-image generation tooling, and first successful browser runtime check
 
 ## Next development phase
 
@@ -18,5 +18,5 @@
 2. Replace or extend HTTP handling if strict pre-parse request-body limits are required.
 3. Add MQTT transport with bounded reconnect/resubscribe behavior.
 4. Add strict NMOS IS-07 event validation and deployment-specific source mapping.
-5. Run real Wi-Fi, LED, power, and interoperability tests.
-6. Run an ESP32 DevKit and physical 4×8 matrix verification, including power and boot-strapping checks.
+5. Run real Wi-Fi, HTTP dashboard, browser-provisioning, MQTT/NMOS, LED, power, and interoperability tests.
+6. Run an ESP32 DevKit and physical 4×8 matrix verification, including power, signal-integrity, and boot-strapping checks.
