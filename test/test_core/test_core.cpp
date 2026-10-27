@@ -6,6 +6,7 @@
 #include "config/ConfigRecord.h"
 #include "config/ConfigRecovery.h"
 #include "network/ConnectionState.h"
+#include "platform/BoardConfiguration.h"
 #include "security/ProvisioningAuth.h"
 #include "tally/TallyState.h"
 #include "web/RequestValidation.h"
@@ -76,6 +77,13 @@ void test_brightness_is_conservatively_clamped() {
   config::DeviceConfig value = config::defaults(2);
   value.brightness = 33;
   TEST_ASSERT_FALSE(config::isValid(value));
+}
+
+void test_board_led_pin_policy_keeps_platform_routes_distinct() {
+  TEST_ASSERT_TRUE(platform::isLedPinValidForTarget(platform::BoardTarget::Esp8266Feather, 15));
+  TEST_ASSERT_FALSE(platform::isLedPinValidForTarget(platform::BoardTarget::Esp8266Feather, 18));
+  TEST_ASSERT_TRUE(platform::isLedPinValidForTarget(platform::BoardTarget::Esp32DevKit, 18));
+  TEST_ASSERT_FALSE(platform::isLedPinValidForTarget(platform::BoardTarget::Esp32DevKit, 15));
 }
 
 void test_configuration_record_detects_corruption() {
@@ -151,6 +159,7 @@ int main(int, char**) {
   RUN_TEST(test_configuration_rejects_invalid_schema_and_unterminated_name);
   RUN_TEST(test_bounded_copy_rejects_overflow);
   RUN_TEST(test_brightness_is_conservatively_clamped);
+  RUN_TEST(test_board_led_pin_policy_keeps_platform_routes_distinct);
   RUN_TEST(test_configuration_record_detects_corruption);
   RUN_TEST(test_backup_is_selected_when_the_primary_is_invalid);
   RUN_TEST(test_provisioning_authorization_and_window_lifecycle);

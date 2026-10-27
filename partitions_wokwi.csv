@@ -1,0 +1,7 @@
+# Name,   Type, SubType, Offset,   Size,     Flags
+# 4 MiB layout matching the Wokwi ESP32 DevKit flash. The LittleFS partition
+# intentionally follows the application partition so it can be merged safely.
+nvs,      data, nvs,     0x9000,   0x5000,
+otadata,  data, ota,     0xe000,   0x2000,
+app0,     app,  ota_0,   0x10000,  0x1c0000,
+littlefs, data, spiffs,  0x1d0000, 0x230000,

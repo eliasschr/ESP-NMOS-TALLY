@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "author": "ESP-NMOS-TALLY",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "wokwi-esp32-devkit-v1", "id": "esp32", "top": 0, "left": 0, "attrs": { "flashSize": "4" } },
+    { "type": "wokwi-led-matrix", "id": "matrix", "top": -20, "left": 320, "attrs": { "rows": "4", "cols": "8", "layout": "serpentine", "brightness": "0.35" } }
+  ],
+  "connections": [
+    [ "esp32:18", "matrix:DIN", "green", [ "h0" ] ],
+    [ "esp32:3V3", "matrix:VDD", "red", [ "h0" ] ],
+    [ "esp32:GND.1", "matrix:VSS", "black", [ "h0" ] ],
+    [ "esp32:TX0", "$serialMonitor:RX", "", [] ],
+    [ "esp32:RX0", "$serialMonitor:TX", "", [] ]
+  ],
+  "dependencies": {}
+}

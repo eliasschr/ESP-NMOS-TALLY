@@ -15,3 +15,5 @@
 The device tries station Wi-Fi for 20 seconds. Failure uses a non-blocking, bounded burst of three retries with backoff, then a 60-second cooldown before a later burst; it does not start the AP. Enter `PROVISION` over USB serial at any time to recover or replace credentials without knowing the old network. A valid configuration is stored in LittleFS with a version and CRC-32 integrity check; the previous valid primary is retained as a backup across a successful save. CRC detects accidental corruption, not tampering.
 
 The connected-network dashboard is status-only. To change credentials or use manual test controls, enter `PROVISION` from USB serial. Do not erase LittleFS for routine recovery; reserve a physical filesystem erase for controlled servicing.
+
+For an ESP32 browser simulation, follow [Wokwi simulation](wokwi-simulation.md). It uses the same serial command and security model; Wokwi does not make serial input equivalent to a physical access-control guarantee.

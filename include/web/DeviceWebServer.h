@@ -1,9 +1,8 @@
 #pragma once
 
-#include <ESP8266WebServer.h>
-
 #include "config/DeviceConfig.h"
 #include "network/NetworkController.h"
+#include "platform/Platform.h"
 #include "tally/TallyState.h"
 
 namespace web {
@@ -30,13 +29,13 @@ class DeviceWebServer {
   void saveNetwork();
   void setTally();
   bool authorizedStateChange();
-  bool requestIsSameOrigin() const;
-  bool requestBodyIsAcceptable() const;
+  bool requestIsSameOrigin();
+  bool requestBodyIsAcceptable();
   bool recordAuthorizationFailure();
   void sendError(int status, const char* message);
 
   Control& control_;
-  ESP8266WebServer server_;
+  TallyWebServer server_;
   uint8_t authorizationFailures_;
   uint32_t authorizationBlockedUntil_;
 };

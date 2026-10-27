@@ -6,6 +6,8 @@ Wi-Fi form fields and all HTTP requests are untrusted. Field lengths are validat
 
 USB serial access is the physical authorization boundary. The `PROVISION` command creates a new 96-bit secret from the ESP8266 SDK RNG and starts a 10-minute WPA2 AP session. The secret appears only on USB serial during that command, is never returned by HTTP, and is cleared when the session ends. Every state-changing request requires it in `X-Provisioning-Secret`; the request must also be same-origin when an `Origin` header is present. No CORS policy is enabled. Repeated authorization failures trigger a 30-second cooldown. The page does not use `localStorage`.
 
+The ESP32 target keeps these controls unchanged. It obtains each provisioning-secret byte from ESP32 `esp_random()` rather than Arduino `random()` or device-identifying data. As with ESP8266, Arduino Wi-Fi credential persistence is disabled; credentials are stored only by the validated LittleFS configuration record. Wokwi serial access is a simulator control, not a real physical-authorization boundary, and must not be used to evaluate deployment security.
+
 `ESP8266WebServer` parses request bodies before route handlers run. This firmware rejects bodies over 256 bytes in handlers but cannot claim a pre-parser allocation bound with that library. The setup AP is time-limited, serial-authorized, and not automatically exposed following a station failure; replacing the web server is required before claiming strict pre-parse body limits.
 
 ## Known limitations

@@ -1,11 +1,10 @@
 #include "network/NetworkController.h"
 
 #include <Arduino.h>
-#include <ESP8266WiFi.h>
-#include <user_interface.h>
 
 #include <string.h>
 
+#include "platform/Platform.h"
 #include "security/ProvisioningAuth.h"
 
 namespace network {
@@ -19,7 +18,7 @@ Controller::Controller()
 
 void Controller::begin(const config::DeviceConfig& configuration) {
   configuration_ = configuration;
-  WiFi.persistent(false);
+  platform::prepareWiFi();
   const ConnectionAction action = connection_.begin(config::hasNetwork(configuration_), millis());
   if (action == ConnectionAction::Connect) startStationAttempt();
   else WiFi.mode(WIFI_OFF);
@@ -54,10 +53,10 @@ void Controller::update() {
 }
 
 bool Controller::startProvisioning() {
-  // os_random() is supplied by the ESP8266 SDK's RF-noise-backed PRNG. Do not
-  // substitute Arduino random(), chip IDs, MAC addresses, or timestamps here.
+  // platform::secureRandom() selects the hardware/SDK entropy source for the
+  // active target. Do not substitute Arduino random(), chip IDs, or timestamps.
   for (size_t index = 0; index < 12; ++index) {
-    const uint8_t byte = static_cast<uint8_t>(os_random() & 0xFFU);
+    const uint8_t byte = static_cast<uint8_t>(platform::secureRandom() & 0xFFU);
     snprintf(provisioningSecret_ + index * 2, 3, "%02X", byte);
   }
   WiFi.mode(WIFI_AP_STA);

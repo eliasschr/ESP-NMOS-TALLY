@@ -5,6 +5,7 @@
 #include "config/ConfigStore.h"
 #include "led/NeoPixelRenderer.h"
 #include "network/NetworkController.h"
+#include "platform/BoardConfiguration.h"
 #include "tally/TallyState.h"
 #include "web/DeviceWebServer.h"
 
@@ -12,6 +13,13 @@ namespace {
 constexpr uint8_t kLedPin = TALLY_LED_PIN;
 constexpr uint8_t kLedCount = TALLY_LED_COUNT;
 constexpr uint32_t kSelfTestStepMs = 300;
+#if defined(ESP8266)
+static_assert(platform::isLedPinValidForTarget(platform::BoardTarget::Esp8266Feather, kLedPin),
+              "ESP8266 Feather firmware must use its documented GPIO 15 LED route.");
+#elif defined(ESP32)
+static_assert(platform::isLedPinValidForTarget(platform::BoardTarget::Esp32DevKit, kLedPin),
+              "ESP32 DevKit/Wokwi firmware must use GPIO 18 for the LED matrix.");
+#endif
 
 class Application final : public web::Control {
  public:

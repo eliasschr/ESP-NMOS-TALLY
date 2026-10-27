@@ -17,3 +17,9 @@ Use a measured, adequately rated 5 V USB supply for this stacked FeatherWing con
 GPIO 15 is a boot-strapping pin on ESP8266 and must be low during reset. The FeatherWing jumper change described above has not been physically verified with this firmware. Do not add external pull-ups or change this jumper/pin assignment without confirming reset and boot behavior on the finished assembly.
 
 Hardware behavior is unverified in this repository. Compilation does not prove the pin mapping, panel behavior, or power safety.
+
+## ESP32 DevKit and Wokwi target
+
+`esp32dev` targets a generic 4 MiB ESP32 DevKit. Its LED data output is GPIO 18, not GPIO 15; GPIO 18 is a normal output-capable pin on this target and does not inherit the ESP8266 FeatherWing jumper requirement. The Wokwi circuit uses a 4×8, 32-pixel WS2812-compatible matrix with GPIO 18 to `DIN`, 3.3 V to `VDD`, and ground to `VSS`. Its `serpentine` layout approximates common matrix wiring. The firmware fills all pixels with one color, so matrix orientation does not affect current tally behavior.
+
+This is a browser-simulation and compile target only. No ESP32 DevKit, matrix wiring, signal integrity, current draw, boot behavior, or physical LED panel has been tested.

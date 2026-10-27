@@ -1,8 +1,8 @@
 #include "web/DeviceWebServer.h"
 
-#include <ESP8266WiFi.h>
 #include <LittleFS.h>
 
+#include "platform/Platform.h"
 #include "web/RequestValidation.h"
 
 namespace web {
@@ -24,7 +24,8 @@ DeviceWebServer::DeviceWebServer(Control& control)
     : control_(control), server_(80), authorizationFailures_(0), authorizationBlockedUntil_(0) {}
 
 void DeviceWebServer::begin() {
-  server_.collectHeaders("X-Provisioning-Secret", "Origin", "Host", "Content-Length");
+  const char* headers[] = {"X-Provisioning-Secret", "Origin", "Host", "Content-Length"};
+  server_.collectHeaders(headers, sizeof(headers) / sizeof(headers[0]));
   server_.on("/", HTTP_GET, [this] { serveIndex(); });
   server_.on("/api/status", HTTP_GET, [this] { serveStatus(); });
   server_.on("/api/network", HTTP_POST, [this] { saveNetwork(); });
@@ -52,8 +53,8 @@ void DeviceWebServer::serveIndex() {
 
 void DeviceWebServer::serveStatus() {
   const auto& configuration = control_.configuration();
-  String body = "{\"deviceName\":\"" + jsonEscape(configuration.deviceName) + "\",\"platform\":\"ESP8266\",\"uptimeSeconds\":" + String(millis() / 1000) +
-                ",\"freeHeap\":" + String(ESP.getFreeHeap()) + ",\"wifiMode\":\"" +
+  String body = "{\"deviceName\":\"" + jsonEscape(configuration.deviceName) + "\",\"platform\":\"" + platform::name() + "\",\"uptimeSeconds\":" + String(millis() / 1000) +
+                ",\"freeHeap\":" + String(platform::freeHeap()) + ",\"wifiMode\":\"" +
                 (control_.network().isProvisioning() ? "provisioning" :
                  (control_.network().isConnected() ? "station" : "recovering")) + "\",\"ipAddress\":\"" +
                 control_.network().ipAddress() + "\",\"tallyState\":\"" + tally::StateMachine::name(control_.state()) +
@@ -61,13 +62,13 @@ void DeviceWebServer::serveStatus() {
   server_.send(200, "application/json", body);
 }
 
-bool DeviceWebServer::requestIsSameOrigin() const {
+bool DeviceWebServer::requestIsSameOrigin() {
   if (!server_.hasHeader("Origin")) return true;
   if (!server_.hasHeader("Host")) return false;
   return server_.header("Origin") == String("http://") + server_.header("Host");
 }
 
-bool DeviceWebServer::requestBodyIsAcceptable() const {
+bool DeviceWebServer::requestBodyIsAcceptable() {
   // ESP8266WebServer parses form data before route handlers run, so this is a
   // post-parse rejection and cannot promise protection from parser allocation.
   unsigned long contentLength = 0;
