@@ -8,6 +8,8 @@
    pio run -e feather_huzzah_esp8266 -t uploadfs
    ```
 
+   On macOS, the tested Feather's CP2104 USB-to-UART interface appeared after installing the Silicon Labs CP210x VCP driver. If no serial port appears, install the current driver from Silicon Labs, reconnect the board, and select the newly available serial device in PlatformIO. Do not record or publish the device serial number.
+
 3. Open the USB serial console at 115200 baud and enter `PROVISION` on its own line. This is the physical authorization step.
 4. The console prints `ESP-NMOS-TALLY-SETUP` and a fresh 24-character provisioning secret. Join that AP with the secret, then open `http://192.168.4.1` before the 10-minute session expires.
 5. Enter the same secret in the setup page, then enter a device name, Wi-Fi SSID, and Wi-Fi passphrase. The passphrase is sent only to the device over this local HTTP provisioning page and is not returned by an API or printed in logs. The provisioning secret is held in browser memory only; it is not stored by the page.
@@ -32,5 +34,7 @@ Commands are case-insensitive and must end with Enter. `HELP` lists all commands
 `DIAGNOSTICS ON` is required before `TALLY PROGRAM`, `TALLY PREVIEW`, `TALLY WARNING`, `TALLY IDENTIFY`, `TALLY OFF`, or `LED TEST`. This explicit local session prevents an accidental serial line from overriding normal control. `EXIT` and `DIAGNOSTICS OFF` cancel an active LED test, restore the tally state held before diagnostics started, and return to normal application control. The session and its selected tally state are not persisted.
 
 `LED TEST` is non-blocking: red, green, blue, amber, white at the existing 32/255 maximum brightness, then off are each requested for approximately one second. You can type `EXIT` or a `TALLY` command while it is running. Serial output identifies render requests only; inspect the LEDs to confirm physical output.
+
+The first physical ESP8266 check used a FeatherWing whose data jumper was already routed to GPIO 2. GPIO 2 is also a boot-strapping pin and the Feather's onboard blue LED pin: do not add circuitry that pulls it low at reset, and do not assume another FeatherWing has the same jumper route. The observed result and its limitations are in [hardware test results](hardware-test-results.md).
 
 For an ESP32 browser simulation, follow [Wokwi simulation](wokwi-simulation.md). It uses the same serial command and security model; Wokwi does not make serial input equivalent to a physical access-control guarantee.

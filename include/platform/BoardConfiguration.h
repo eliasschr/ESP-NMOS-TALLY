@@ -6,7 +6,7 @@ namespace platform {
 
 enum class BoardTarget : uint8_t { Esp8266Feather, Esp32DevKit };
 
-constexpr uint8_t kEsp8266FeatherLedPin = 15;
+constexpr uint8_t kEsp8266FeatherLedPin = 2;
 constexpr uint8_t kEsp32DevKitLedPin = 18;
 
 // This stays Arduino-independent so board-pin policy remains unit-testable.

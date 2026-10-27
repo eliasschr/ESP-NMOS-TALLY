@@ -8,7 +8,7 @@ It is not yet an NMOS device. MQTT and AMWA IS-07 integration are planned separa
 
 | Capability | Implemented | Build-verified | Unit-tested | Hardware-tested |
 | --- | --- | --- | --- | --- |
-| ESP8266 firmware, serial-authorized provisioning, status dashboard | Yes | Yes | Yes | No |
+| ESP8266 firmware, serial-authorized provisioning, status dashboard | Yes | Yes | Yes | Partial: USB, flashing, serial diagnostics, and LED output |
 | ESP32 `esp32dev` firmware | Yes | Yes | Shared logic | No |
 | Wokwi ESP32 circuit and merged-image build tooling | Yes | Yes | N/A | No |
 | Wokwi browser execution (ESP32) | Yes | Manual simulation | N/A | No |
@@ -26,6 +26,7 @@ Supported initial target:
 - USB power and Wi-Fi
 
 See [hardware notes](docs/hardware.md) before powering the display at high brightness.
+The first physical ESP8266/FeatherWing result is recorded in [hardware test results](docs/hardware-test-results.md); it is not a full network, power, or long-term reliability qualification.
 
 ## Build and flash
 
@@ -50,7 +51,7 @@ pio run -e esp32dev
 
 The latter builds the application and its LittleFS image, then emits an ignored complete flash image at `dist/esp-nmos-tally-wokwi.bin`. See [Wokwi simulation](docs/wokwi-simulation.md) for import/upload steps and simulation limitations.
 
-The first browser runtime check was run against firmware commit `0a9058e59b7d102b6a68dee2c8c6679eb04e5ac7`. It confirmed an ESP32 boot, LittleFS initialization, serial provisioning activation, and manual serial tally colors on the simulated 4×8 matrix. This is a Wokwi-only result; it does not verify physical ESP8266 or ESP32 hardware, Wi-Fi, HTTP, MQTT, or NMOS behavior.
+The first browser runtime check was run against firmware commit `0a9058e59b7d102b6a68dee2c8c6679eb04e5ac7`. It confirmed an ESP32 boot, LittleFS initialization, serial provisioning activation, and manual serial tally colors on the simulated 4×8 matrix. This is a Wokwi-only result; it does not verify physical ESP32 hardware, Wi-Fi, HTTP, MQTT, or NMOS behavior. A separate, limited physical ESP8266 LED and serial check is documented in the hardware test results.
 
 ## First start
 
@@ -101,6 +102,7 @@ Successful CI runs retain the ESP8266 `firmware.bin` as a workflow artifact for 
 - [Architecture](docs/architecture.md)
 - [Getting started](docs/getting-started.md)
 - [Hardware](docs/hardware.md)
+- [Hardware test results](docs/hardware-test-results.md)
 - [NMOS integration](docs/nmos-integration.md)
 - [Security](docs/security.md)
 - [Roadmap](docs/roadmap.md)

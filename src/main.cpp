@@ -16,7 +16,7 @@ constexpr uint8_t kLedCount = TALLY_LED_COUNT;
 constexpr uint32_t kSelfTestStepMs = 300;
 #if defined(ESP8266)
 static_assert(platform::isLedPinValidForTarget(platform::BoardTarget::Esp8266Feather, kLedPin),
-              "ESP8266 Feather firmware must use its documented GPIO 15 LED route.");
+              "ESP8266 Feather firmware must use its documented GPIO 2 LED route.");
 #elif defined(ESP32)
 static_assert(platform::isLedPinValidForTarget(platform::BoardTarget::Esp32DevKit, kLedPin),
               "ESP32 DevKit/Wokwi firmware must use GPIO 18 for the LED matrix.");

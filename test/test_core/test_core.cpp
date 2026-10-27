@@ -165,9 +165,11 @@ void test_brightness_is_conservatively_clamped() {
 }
 
 void test_board_led_pin_policy_keeps_platform_routes_distinct() {
-  TEST_ASSERT_TRUE(platform::isLedPinValidForTarget(platform::BoardTarget::Esp8266Feather, 15));
+  TEST_ASSERT_TRUE(platform::isLedPinValidForTarget(platform::BoardTarget::Esp8266Feather, 2));
   TEST_ASSERT_FALSE(platform::isLedPinValidForTarget(platform::BoardTarget::Esp8266Feather, 18));
+  TEST_ASSERT_FALSE(platform::isLedPinValidForTarget(platform::BoardTarget::Esp8266Feather, 15));
   TEST_ASSERT_TRUE(platform::isLedPinValidForTarget(platform::BoardTarget::Esp32DevKit, 18));
+  TEST_ASSERT_FALSE(platform::isLedPinValidForTarget(platform::BoardTarget::Esp32DevKit, 2));
   TEST_ASSERT_FALSE(platform::isLedPinValidForTarget(platform::BoardTarget::Esp32DevKit, 15));
 }
 
