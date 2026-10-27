@@ -50,6 +50,14 @@ void test_serial_commands_are_case_insensitive_and_map_states() {
   TEST_ASSERT_EQUAL(serial::CommandType::LedTest, serial::parseCommand("led test").type);
   TEST_ASSERT_EQUAL(serial::CommandType::LedRainbow, serial::parseCommand("LED RAINBOW").type);
   TEST_ASSERT_EQUAL(serial::CommandType::LedStop, serial::parseCommand("led stop").type);
+  const serial::Command minimumBrightness = serial::parseCommand("LED BRIGHTNESS 0");
+  TEST_ASSERT_EQUAL(serial::CommandType::LedBrightness, minimumBrightness.type);
+  TEST_ASSERT_EQUAL_UINT8(0, minimumBrightness.brightness);
+  const serial::Command maximumBrightness = serial::parseCommand("LED BRIGHTNESS 32");
+  TEST_ASSERT_EQUAL(serial::CommandType::LedBrightness, maximumBrightness.type);
+  TEST_ASSERT_EQUAL_UINT8(32, maximumBrightness.brightness);
+  TEST_ASSERT_EQUAL(serial::CommandType::LedBrightnessStatus,
+                    serial::parseCommand("led brightness").type);
   TEST_ASSERT_EQUAL(serial::CommandType::Provision, serial::parseCommand("PrOvIsIoN").type);
   TEST_ASSERT_EQUAL(serial::CommandType::EnterDiagnostics, serial::parseCommand("diagnostics on").type);
   TEST_ASSERT_EQUAL(serial::CommandType::ExitDiagnostics, serial::parseCommand("EXIT").type);
@@ -60,6 +68,9 @@ void test_serial_commands_reject_invalid_and_empty_input() {
   TEST_ASSERT_EQUAL(serial::CommandType::Invalid, serial::parseCommand("TALLY PURPLE").type);
   TEST_ASSERT_EQUAL(serial::CommandType::Invalid, serial::parseCommand("LED TEST NOW").type);
   TEST_ASSERT_EQUAL(serial::CommandType::Invalid, serial::parseCommand("LED RAINBOW NOW").type);
+  TEST_ASSERT_EQUAL(serial::CommandType::Invalid, serial::parseCommand("LED BRIGHTNESS 33").type);
+  TEST_ASSERT_EQUAL(serial::CommandType::Invalid, serial::parseCommand("LED BRIGHTNESS -1").type);
+  TEST_ASSERT_EQUAL(serial::CommandType::Invalid, serial::parseCommand("LED BRIGHTNESS 1.5").type);
   TEST_ASSERT_EQUAL(serial::CommandType::Invalid, serial::parseCommand(nullptr).type);
 }
 
@@ -84,7 +95,7 @@ void test_diagnostic_session_requires_explicit_authorization_and_can_exit() {
   serial::DiagnosticSession session;
   TEST_ASSERT_FALSE(session.startLedTest(0, tally::State::Program));
   TEST_ASSERT_FALSE(session.startRainbow(tally::State::Program));
-  TEST_ASSERT_TRUE(session.enter(tally::State::Preview));
+  TEST_ASSERT_TRUE(session.enter(tally::State::Preview, 16));
   TEST_ASSERT_TRUE(session.active());
   tally::State restored = tally::State::Off;
   TEST_ASSERT_TRUE(session.exit(restored));
@@ -92,9 +103,29 @@ void test_diagnostic_session_requires_explicit_authorization_and_can_exit() {
   TEST_ASSERT_FALSE(session.active());
 }
 
+void test_diagnostic_brightness_validates_bounds_and_restores_configured_value() {
+  serial::DiagnosticSession session;
+  TEST_ASSERT_FALSE(session.setBrightness(0));
+  TEST_ASSERT_TRUE(session.enter(tally::State::Off, 16));
+  TEST_ASSERT_EQUAL_UINT8(16, session.brightness());
+  TEST_ASSERT_TRUE(session.setBrightness(0));
+  TEST_ASSERT_EQUAL_UINT8(0, session.brightness());
+  TEST_ASSERT_TRUE(session.setBrightness(32));
+  TEST_ASSERT_EQUAL_UINT8(32, session.brightness());
+  TEST_ASSERT_FALSE(session.setBrightness(33));
+  TEST_ASSERT_EQUAL_UINT8(32, session.brightness());
+  TEST_ASSERT_TRUE(session.startRainbow(tally::State::Program));
+  TEST_ASSERT_TRUE(session.setBrightness(12));
+  TEST_ASSERT_TRUE(session.rainbowActive());
+  TEST_ASSERT_EQUAL_UINT8(12, session.brightness());
+  tally::State restored = tally::State::Off;
+  TEST_ASSERT_TRUE(session.exit(restored));
+  TEST_ASSERT_EQUAL_UINT8(16, session.brightness());
+}
+
 void test_rainbow_session_lifecycle_cancels_other_diagnostic_effects() {
   serial::DiagnosticSession session;
-  TEST_ASSERT_TRUE(session.enter(tally::State::Preview));
+  TEST_ASSERT_TRUE(session.enter(tally::State::Preview, 16));
   TEST_ASSERT_TRUE(session.startRainbow(tally::State::Warning));
   TEST_ASSERT_TRUE(session.rainbowActive());
   TEST_ASSERT_TRUE(session.startRainbow(tally::State::Program));
@@ -113,7 +144,7 @@ void test_rainbow_session_lifecycle_cancels_other_diagnostic_effects() {
 
 void test_diagnostic_exit_stops_rainbow_effect() {
   serial::DiagnosticSession session;
-  TEST_ASSERT_TRUE(session.enter(tally::State::Preview));
+  TEST_ASSERT_TRUE(session.enter(tally::State::Preview, 16));
   TEST_ASSERT_TRUE(session.startRainbow(tally::State::Program));
   tally::State restored = tally::State::Off;
   TEST_ASSERT_TRUE(session.exit(restored));
@@ -163,7 +194,7 @@ void test_rainbow_timing_is_non_blocking_and_rollover_safe() {
 
 void test_led_test_cancellation_restores_previous_state() {
   serial::DiagnosticSession session;
-  TEST_ASSERT_TRUE(session.enter(tally::State::Off));
+  TEST_ASSERT_TRUE(session.enter(tally::State::Off, 16));
   TEST_ASSERT_TRUE(session.startLedTest(100, tally::State::Warning));
   TEST_ASSERT_TRUE(session.ledTestActive());
   tally::State restored = tally::State::Off;
@@ -174,7 +205,7 @@ void test_led_test_cancellation_restores_previous_state() {
 
 void test_led_test_sequences_without_blocking() {
   serial::DiagnosticSession session;
-  TEST_ASSERT_TRUE(session.enter(tally::State::Off));
+  TEST_ASSERT_TRUE(session.enter(tally::State::Off, 16));
   TEST_ASSERT_TRUE(session.startLedTest(100, tally::State::Program));
   TEST_ASSERT_EQUAL_STRING("RED", session.ledTestOutput().name);
   tally::State restored = tally::State::Off;
@@ -320,6 +351,7 @@ int main(int, char**) {
   RUN_TEST(test_serial_input_buffer_accepts_lf_and_crlf);
   RUN_TEST(test_serial_input_buffer_rejects_oversized_commands);
   RUN_TEST(test_diagnostic_session_requires_explicit_authorization_and_can_exit);
+  RUN_TEST(test_diagnostic_brightness_validates_bounds_and_restores_configured_value);
   RUN_TEST(test_rainbow_session_lifecycle_cancels_other_diagnostic_effects);
   RUN_TEST(test_diagnostic_exit_stops_rainbow_effect);
   RUN_TEST(test_led_test_cancellation_restores_previous_state);

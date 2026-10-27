@@ -27,6 +27,22 @@ bool readToken(const char*& value, const char* expected) {
 
 bool hasNoMoreTokens(const char* value) { return *skipSpaces(value) == '\0'; }
 
+bool readBrightness(const char* value, uint8_t& brightness) {
+  uint8_t parsed = 0;
+  if (*value == '\0') return false;
+  while (*value != '\0') {
+    if (*value < '0' || *value > '9') return false;
+    const uint8_t digit = static_cast<uint8_t>(*value - '0');
+    // Checking before multiplication avoids overflow and rejects values over
+    // the physical brightness limit rather than silently clamping them.
+    if (parsed > (config::kMaximumBrightness - digit) / 10U) return false;
+    parsed = static_cast<uint8_t>(parsed * 10U + digit);
+    ++value;
+  }
+  brightness = parsed;
+  return true;
+}
+
 const LedTestOutput kLedTestOutputs[] = {
     {"RED", {255, 0, 0}},     {"GREEN", {0, 255, 0}},
     {"BLUE", {0, 0, 255}},    {"AMBER", {255, 112, 0}},
@@ -58,28 +74,35 @@ InputEvent InputBuffer::append(char character) {
 }
 
 Command parseCommand(const char* line) {
-  if (line == nullptr) return {CommandType::Invalid, tally::State::Off};
+  if (line == nullptr) return {CommandType::Invalid, tally::State::Off, 0};
   const char* value = skipSpaces(line);
-  if (*value == '\0') return {CommandType::Empty, tally::State::Off};
-  if (readToken(value, "HELP") && hasNoMoreTokens(value)) return {CommandType::Help, tally::State::Off};
-  if (readToken(value, "STATUS") && hasNoMoreTokens(value)) return {CommandType::Status, tally::State::Off};
-  if (readToken(value, "PROVISION") && hasNoMoreTokens(value)) return {CommandType::Provision, tally::State::Off};
-  if (readToken(value, "EXIT") && hasNoMoreTokens(value)) return {CommandType::ExitDiagnostics, tally::State::Off};
+  if (*value == '\0') return {CommandType::Empty, tally::State::Off, 0};
+  if (readToken(value, "HELP") && hasNoMoreTokens(value)) return {CommandType::Help, tally::State::Off, 0};
+  if (readToken(value, "STATUS") && hasNoMoreTokens(value)) return {CommandType::Status, tally::State::Off, 0};
+  if (readToken(value, "PROVISION") && hasNoMoreTokens(value)) return {CommandType::Provision, tally::State::Off, 0};
+  if (readToken(value, "EXIT") && hasNoMoreTokens(value)) return {CommandType::ExitDiagnostics, tally::State::Off, 0};
 
   value = skipSpaces(line);
   if (readToken(value, "DIAGNOSTICS")) {
     value = skipSpaces(value);
-    if (readToken(value, "ON") && hasNoMoreTokens(value)) return {CommandType::EnterDiagnostics, tally::State::Off};
-    if (readToken(value, "OFF") && hasNoMoreTokens(value)) return {CommandType::ExitDiagnostics, tally::State::Off};
-    return {CommandType::Invalid, tally::State::Off};
+    if (readToken(value, "ON") && hasNoMoreTokens(value)) return {CommandType::EnterDiagnostics, tally::State::Off, 0};
+    if (readToken(value, "OFF") && hasNoMoreTokens(value)) return {CommandType::ExitDiagnostics, tally::State::Off, 0};
+    return {CommandType::Invalid, tally::State::Off, 0};
   }
   value = skipSpaces(line);
   if (readToken(value, "LED")) {
     value = skipSpaces(value);
-    if (readToken(value, "TEST") && hasNoMoreTokens(value)) return {CommandType::LedTest, tally::State::Off};
-    if (readToken(value, "RAINBOW") && hasNoMoreTokens(value)) return {CommandType::LedRainbow, tally::State::Off};
-    if (readToken(value, "STOP") && hasNoMoreTokens(value)) return {CommandType::LedStop, tally::State::Off};
-    return {CommandType::Invalid, tally::State::Off};
+    if (readToken(value, "TEST") && hasNoMoreTokens(value)) return {CommandType::LedTest, tally::State::Off, 0};
+    if (readToken(value, "RAINBOW") && hasNoMoreTokens(value)) return {CommandType::LedRainbow, tally::State::Off, 0};
+    if (readToken(value, "STOP") && hasNoMoreTokens(value)) return {CommandType::LedStop, tally::State::Off, 0};
+    if (readToken(value, "BRIGHTNESS")) {
+      value = skipSpaces(value);
+      if (*value == '\0') return {CommandType::LedBrightnessStatus, tally::State::Off, 0};
+      uint8_t brightness = 0;
+      return readBrightness(value, brightness) ? Command{CommandType::LedBrightness, tally::State::Off, brightness}
+                                              : Command{CommandType::Invalid, tally::State::Off, 0};
+    }
+    return {CommandType::Invalid, tally::State::Off, 0};
   }
   value = skipSpaces(line);
   if (readToken(value, "TALLY")) {
@@ -89,20 +112,23 @@ Command parseCommand(const char* line) {
     for (const tally::State state : states) {
       const char* afterState = value;
       if (readToken(afterState, tally::StateMachine::name(state)) && hasNoMoreTokens(afterState))
-        return {CommandType::SetTally, state};
+        return {CommandType::SetTally, state, 0};
     }
   }
-  return {CommandType::Invalid, tally::State::Off};
+  return {CommandType::Invalid, tally::State::Off, 0};
 }
 
 DiagnosticSession::DiagnosticSession()
-    : active_(false), ledTestActive_(false), rainbowActive_(false), ledTestStep_(0), nextLedTestTransitionAt_(0),
+    : active_(false), ledTestActive_(false), rainbowActive_(false), configuredBrightness_(0),
+      diagnosticBrightness_(0), ledTestStep_(0), nextLedTestTransitionAt_(0),
       returnState_(tally::State::Off), preTestState_(tally::State::Off) {}
 
-bool DiagnosticSession::enter(tally::State returnState) {
+bool DiagnosticSession::enter(tally::State returnState, uint8_t configuredBrightness) {
   if (active_) return false;
   active_ = true;
   returnState_ = returnState;
+  configuredBrightness_ = config::clampBrightness(configuredBrightness);
+  diagnosticBrightness_ = configuredBrightness_;
   return true;
 }
 
@@ -112,6 +138,12 @@ bool DiagnosticSession::exit(tally::State& restoredState) {
   ledTestActive_ = false;
   rainbowActive_ = false;
   restoredState = returnState_;
+  return true;
+}
+
+bool DiagnosticSession::setBrightness(uint8_t brightness) {
+  if (!active_ || brightness != config::clampBrightness(brightness)) return false;
+  diagnosticBrightness_ = brightness;
   return true;
 }
 

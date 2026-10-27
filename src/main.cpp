@@ -103,6 +103,8 @@ class Application final : public web::Control {
       case serial::CommandType::LedTest: return startLedTest();
       case serial::CommandType::LedRainbow: return startRainbow();
       case serial::CommandType::LedStop: return stopLedEffect();
+      case serial::CommandType::LedBrightness: return setDiagnosticBrightness(command.brightness);
+      case serial::CommandType::LedBrightnessStatus: return printDiagnosticBrightness();
       case serial::CommandType::Invalid:
         Serial.println(F("ERROR: Unknown command. Type HELP."));
         return;
@@ -112,6 +114,7 @@ class Application final : public web::Control {
   void printSerialHelp() const {
     Serial.println(F("INFO: Commands: HELP, STATUS, PROVISION, DIAGNOSTICS ON, DIAGNOSTICS OFF/EXIT"));
     Serial.println(F("INFO: Diagnostics: TALLY PROGRAM|PREVIEW|WARNING|IDENTIFY|OFF, LED TEST|RAINBOW|STOP"));
+    Serial.println(F("INFO: LED BRIGHTNESS [0-32]"));
   }
 
   void printSerialStatus() const {
@@ -123,6 +126,8 @@ class Application final : public web::Control {
     Serial.println(diagnostics_.ledTestActive() ? F("running") : F("idle"));
     Serial.print(F("INFO: LED rainbow: "));
     Serial.println(diagnostics_.rainbowActive() ? F("running") : F("idle"));
+    Serial.print(F("INFO: LED brightness: "));
+    Serial.println(outputBrightness());
   }
 
   void startProvisioning() {
@@ -139,7 +144,7 @@ class Application final : public web::Control {
 
   void enterDiagnostics() {
     selfTestStep_ = 5;
-    if (!diagnostics_.enter(state_.state())) {
+    if (!diagnostics_.enter(state_.state(), configuration_.brightness)) {
       Serial.println(F("ERROR: Diagnostics are already enabled."));
       return;
     }
@@ -199,7 +204,9 @@ class Application final : public web::Control {
     }
     rainbow_.start(millis());
     renderRainbowFrame();
-    Serial.println(F("INFO: LED rainbow started at 32/255. Use LED STOP or EXIT to cancel."));
+    Serial.print(F("INFO: LED rainbow started at "));
+    Serial.print(diagnostics_.brightness());
+    Serial.println(F("/255. Use LED STOP or EXIT to cancel."));
   }
 
   void stopLedEffect() {
@@ -216,6 +223,35 @@ class Application final : public web::Control {
     state_.set(restoredState);
     renderTallyOutput();
     Serial.println(F("INFO: LED diagnostic effect stopped; restored diagnostic tally state."));
+  }
+
+  void setDiagnosticBrightness(uint8_t brightness) {
+    if (!diagnostics_.active()) {
+      Serial.println(F("ERROR: Run DIAGNOSTICS ON before LED BRIGHTNESS."));
+      return;
+    }
+    if (!diagnostics_.setBrightness(brightness)) {
+      Serial.println(F("ERROR: LED brightness must be between 0 and 32."));
+      return;
+    }
+    if (diagnostics_.rainbowActive()) {
+      renderRainbowFrame();
+    } else if (diagnostics_.ledTestActive()) {
+      renderLedTestOutput();
+    } else {
+      renderTallyOutput();
+    }
+    Serial.print(F("INFO: Temporary LED brightness set to "));
+    Serial.println(diagnostics_.brightness());
+  }
+
+  void printDiagnosticBrightness() const {
+    if (!diagnostics_.active()) {
+      Serial.println(F("ERROR: Run DIAGNOSTICS ON before LED BRIGHTNESS."));
+      return;
+    }
+    Serial.print(F("INFO: Temporary LED brightness: "));
+    Serial.println(diagnostics_.brightness());
   }
 
   void runLedTest() {
@@ -237,17 +273,17 @@ class Application final : public web::Control {
 
   void renderLedTestOutput() {
     const serial::LedTestOutput output = diagnostics_.ledTestOutput();
-    renderer_.render(output.color, config::kMaximumBrightness);
+    renderer_.render(output.color, diagnostics_.brightness());
     Serial.print(F("INFO: LED test output requested: "));
     Serial.print(output.name);
-    Serial.println(F(" at 32/255; verify LEDs visually."));
+    Serial.println(F("; verify LEDs visually."));
   }
 
   void renderRainbowFrame() {
     tally::RgbColor colors[kLedCount];
     for (uint8_t pixel = 0; pixel < kLedCount; ++pixel)
       colors[pixel] = rainbow_.colorForPixel(pixel, kLedCount);
-    renderer_.renderPixels(colors, kLedCount, config::kMaximumBrightness);
+    renderer_.renderPixels(colors, kLedCount, diagnostics_.brightness());
   }
 
   void logRenderRequested(const char* name) const {
@@ -278,7 +314,11 @@ class Application final : public web::Control {
   }
 
   void renderTallyOutput() {
-    renderer_.render(state_.color(), configuration_.brightness);
+    renderer_.render(state_.color(), outputBrightness());
+  }
+
+  uint8_t outputBrightness() const {
+    return diagnostics_.active() ? diagnostics_.brightness() : configuration_.brightness;
   }
 
   config::Store store_;

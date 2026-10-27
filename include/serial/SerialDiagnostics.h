@@ -3,6 +3,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "config/DeviceConfig.h"
 #include "tally/TallyState.h"
 
 namespace serial {
@@ -37,11 +38,14 @@ enum class CommandType : uint8_t {
   LedTest,
   LedRainbow,
   LedStop,
+  LedBrightness,
+  LedBrightnessStatus,
 };
 
 struct Command {
   CommandType type;
   tally::State state;
+  uint8_t brightness;
 };
 
 Command parseCommand(const char* line);
@@ -60,8 +64,10 @@ class DiagnosticSession {
   bool active() const { return active_; }
   bool ledTestActive() const { return ledTestActive_; }
   bool rainbowActive() const { return rainbowActive_; }
-  bool enter(tally::State returnState);
+  uint8_t brightness() const { return active_ ? diagnosticBrightness_ : configuredBrightness_; }
+  bool enter(tally::State returnState, uint8_t configuredBrightness);
   bool exit(tally::State& restoredState);
+  bool setBrightness(uint8_t brightness);
   bool startLedTest(uint32_t now, tally::State returnState);
   bool cancelLedTest(tally::State& restoredState);
   bool startRainbow(tally::State returnState);
@@ -78,6 +84,8 @@ class DiagnosticSession {
   bool active_;
   bool ledTestActive_;
   bool rainbowActive_;
+  uint8_t configuredBrightness_;
+  uint8_t diagnosticBrightness_;
   uint8_t ledTestStep_;
   uint32_t nextLedTestTransitionAt_;
   tally::State returnState_;

@@ -27,17 +27,21 @@ DIAGNOSTICS ON
 TALLY PROGRAM
 LED TEST
 LED RAINBOW
+LED BRIGHTNESS 12
+LED BRIGHTNESS
 LED STOP
 EXIT
 ```
 
 Commands are case-insensitive and must end with Enter. `HELP` lists all commands; `STATUS` reports tally, diagnostic-session, LED-test, and rainbow state only, never stored Wi-Fi credentials or secrets. `PROVISION` retains its existing behavior and is independent of diagnostics.
 
-`DIAGNOSTICS ON` is required before `TALLY PROGRAM`, `TALLY PREVIEW`, `TALLY WARNING`, `TALLY IDENTIFY`, `TALLY OFF`, `LED TEST`, `LED RAINBOW`, or `LED STOP`. This explicit local session prevents an accidental serial line from overriding normal control. `EXIT` and `DIAGNOSTICS OFF` cancel an active LED effect, restore the tally state held before diagnostics started, and return to normal application control. The session and its selected tally state are not persisted.
+`DIAGNOSTICS ON` is required before `TALLY PROGRAM`, `TALLY PREVIEW`, `TALLY WARNING`, `TALLY IDENTIFY`, `TALLY OFF`, `LED TEST`, `LED RAINBOW`, `LED STOP`, or `LED BRIGHTNESS`. This explicit local session prevents an accidental serial line from overriding normal control. `EXIT` and `DIAGNOSTICS OFF` cancel an active LED effect, restore the tally state held before diagnostics started, and return to normal application control. The session and its selected tally state are not persisted.
 
 `LED TEST` is non-blocking: red, green, blue, amber, white at the existing 32/255 maximum brightness, then off are each requested for approximately one second. You can type `EXIT` or a `TALLY` command while it is running. Serial output identifies render requests only; inspect the LEDs to confirm physical output.
 
-`LED RAINBOW` starts immediately and continuously moves a full HSV hue gradient across all 32 LEDs at approximately 25 FPS. It uses integer color conversion and `millis()` scheduling, so it does not block network or web handling. `LED STOP`, any `TALLY` command, `LED TEST`, and `EXIT` stop the effect; repeating `LED RAINBOW` restarts it. `LED STOP` also cancels an active `LED TEST`. The effect uses the existing 32/255 physical brightness limit regardless of the saved dashboard brightness and does not change that saved setting.
+`LED RAINBOW` starts immediately and continuously moves a full HSV hue gradient across all 32 LEDs at approximately 25 FPS. It uses integer color conversion and `millis()` scheduling, so it does not block network or web handling. `LED STOP`, any `TALLY` command, `LED TEST`, and `EXIT` stop the effect; repeating `LED RAINBOW` restarts it. `LED STOP` also cancels an active `LED TEST`.
+
+`LED BRIGHTNESS` displays the active temporary diagnostic brightness. `LED BRIGHTNESS <value>` accepts only whole values from 0 through 32, rejects invalid input, and immediately redraws the active tally color, test frame, or rainbow frame without restarting an animation. It applies to all diagnostic LED output, is never saved to LittleFS, and is discarded when diagnostics ends; normal application rendering then uses the configured brightness. The renderer always applies the existing 32/255 maximum clamp, including in Wokwi.
 
 The first physical ESP8266 check used a FeatherWing whose data jumper was already routed to GPIO 2. GPIO 2 is also a boot-strapping pin and the Feather's onboard blue LED pin: do not add circuitry that pulls it low at reset, and do not assume another FeatherWing has the same jumper route. The observed result and its limitations are in [hardware test results](hardware-test-results.md).
 
