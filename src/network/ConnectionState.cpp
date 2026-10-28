@@ -4,7 +4,7 @@ namespace network {
 
 ConnectionStateMachine::ConnectionStateMachine()
     : state_(ConnectionState::Unconfigured), deadline_(0), nextAttemptAt_(0),
-      backoffMs_(kInitialBackoffMs), attemptsInBurst_(0) {}
+      backoffMs_(kInitialBackoffMs), attemptsInBurst_(0), attemptCount_(0) {}
 
 ConnectionAction ConnectionStateMachine::begin(bool configured, uint32_t now) {
   if (!configured) {
@@ -14,6 +14,7 @@ ConnectionAction ConnectionStateMachine::begin(bool configured, uint32_t now) {
   state_ = ConnectionState::Connecting;
   deadline_ = now + kConnectTimeoutMs;
   attemptsInBurst_ = 1;
+  attemptCount_ = 1;
   return ConnectionAction::Connect;
 }
 
@@ -33,6 +34,7 @@ ConnectionAction ConnectionStateMachine::update(bool connected, uint32_t now) {
     state_ = ConnectionState::Connecting;
     deadline_ = now + kConnectTimeoutMs;
     ++attemptsInBurst_;
+    ++attemptCount_;
     return ConnectionAction::Connect;
   }
   return ConnectionAction::None;

@@ -5,15 +5,15 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="dark">
   <title>ESP NMOS Tally</title>
-  <link rel="stylesheet" href="/app.css">
+  <link rel="stylesheet" href="/app.css?v=20261028-network-form-capture">
 </head>
 <body>
   <main>
     <header><h1>ESP NMOS Tally</h1><p id="mode">Loading device status…</p></header>
     <section><h2>Device status</h2><dl id="status"></dl></section>
     <section id="network-section" hidden>
-      <h2>Network setup</h2><p>Provisioning is active. Enter the secret shown on the USB serial console, then enter a local Wi-Fi network. The device will leave this setup network when it connects.</p>
-      <form id="network-form"><label>Provisioning secret<input id="provisioning-secret" type="password" minlength="24" maxlength="24" required autocomplete="off"></label><label>Device name<input name="name" maxlength="32" required></label><label>Wi-Fi network (SSID)<input name="ssid" maxlength="32" required></label><label>Wi-Fi password<input name="password" type="password" maxlength="64" autocomplete="new-password"></label><button>Save and connect</button></form>
+      <h2>Network setup</h2><p>Provisioning is active. Enter the secret shown on the USB serial console, then enter a local Wi-Fi network. Saving accepts the configuration; it does not verify that the ESP8266 joined the network.</p>
+      <form id="network-form"><label>Provisioning secret<input id="provisioning-secret" type="password" minlength="24" maxlength="24" required autocomplete="off"></label><label>Device name<input name="name" maxlength="32" required></label><label>Wi-Fi network (SSID)<input name="ssid" maxlength="32" required></label><label>Wi-Fi password<input name="password" type="password" maxlength="64" autocomplete="new-password"></label><p id="network-fields-error" role="alert"></p><button type="submit">Save and connect</button></form>
     </section>
     <section id="test-section" hidden>
       <h2>Tally testing</h2><p>Manual test controls are intentionally available only during provisioning.</p>
@@ -21,8 +21,8 @@
       <label>Brightness <input id="brightness" type="range" min="0" max="32" value="16"><output id="brightness-value">16</output></label>
     </section>
     <section><h2>NMOS</h2><p>NMOS IS-07 MQTT event handling is planned and is not configured on this device.</p></section>
-    <p id="message" role="status"></p>
+    <section id="feedback" aria-label="Device feedback" hidden><p id="connection-progress" role="status" aria-live="polite">Ready to configure</p><p id="message" role="status" aria-live="polite"></p><p id="alert" role="alert" aria-live="assertive"></p></section>
   </main>
-  <script src="/app.js"></script>
+  <script src="/app.js?v=20261028-network-form-capture"></script>
 </body>
 </html>

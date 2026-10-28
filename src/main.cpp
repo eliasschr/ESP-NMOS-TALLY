@@ -62,13 +62,13 @@ class Application final : public web::Control {
     if (!config::isValid(value)) return false;
     if (config::equals(configuration_, value)) return true;
     if (!store_.save(value)) return false;
-    const bool reconnectRequired = config::networkSettingsChanged(configuration_, value);
     configuration_ = value;
-    if (reconnectRequired) {
-      network_.connect(configuration_);
-      state_.set(tally::State::Off);
-    }
     return true;
+  }
+
+  void connectConfiguredNetwork() override {
+    network_.connect(configuration_);
+    state_.set(tally::State::Off);
   }
 
   bool setManualState(tally::State state) override {
@@ -96,6 +96,7 @@ class Application final : public web::Control {
       case serial::CommandType::Empty: return;
       case serial::CommandType::Help: return printSerialHelp();
       case serial::CommandType::Status: return printSerialStatus();
+      case serial::CommandType::WifiStatus: return printWifiStatus();
       case serial::CommandType::Provision: return startProvisioning();
       case serial::CommandType::EnterDiagnostics: return enterDiagnostics();
       case serial::CommandType::ExitDiagnostics: return exitDiagnostics();
@@ -112,7 +113,7 @@ class Application final : public web::Control {
   }
 
   void printSerialHelp() const {
-    Serial.println(F("INFO: Commands: HELP, STATUS, PROVISION, DIAGNOSTICS ON, DIAGNOSTICS OFF/EXIT"));
+    Serial.println(F("INFO: Commands: HELP, STATUS, WIFI STATUS, PROVISION, DIAGNOSTICS ON, DIAGNOSTICS OFF/EXIT"));
     Serial.println(F("INFO: Diagnostics: TALLY PROGRAM|PREVIEW|WARNING|IDENTIFY|OFF, LED TEST|RAINBOW|STOP"));
     Serial.println(F("INFO: LED BRIGHTNESS [0-32]"));
   }
@@ -128,6 +129,36 @@ class Application final : public web::Control {
     Serial.println(diagnostics_.rainbowActive() ? F("running") : F("idle"));
     Serial.print(F("INFO: LED brightness: "));
     Serial.println(outputBrightness());
+  }
+
+  void printWifiStatus() const {
+    Serial.print(F("INFO: WIFI mode: "));
+    Serial.println(network_.isProvisioning() ? F("provisioning") : F("station"));
+    Serial.print(F("INFO: WIFI configuration present: "));
+    Serial.println(network_.hasConfiguration() ? F("yes") : F("no"));
+    Serial.print(F("INFO: WIFI provisioning active: "));
+    Serial.println(network_.isProvisioning() ? F("yes") : F("no"));
+    Serial.print(F("INFO: WIFI station connection state: "));
+    Serial.println(network_.wifiState());
+    Serial.print(F("INFO: WIFI status: "));
+    Serial.print(network_.stationStatusName());
+    Serial.print(F(" ("));
+    Serial.print(network_.stationStatusCode());
+    Serial.println(F(")"));
+    Serial.print(F("INFO: WIFI connection attempts: "));
+    Serial.println(network_.connectionAttemptCount());
+    Serial.print(F("INFO: WIFI last disconnect: reason="));
+    Serial.print(network_.lastDisconnectReason());
+    Serial.print(F(", category="));
+    Serial.println(network_.lastDisconnectCategory());
+    Serial.print(F("INFO: WIFI DHCP IPv4 assigned: "));
+    Serial.println(network_.hasStationIp() ? F("yes") : F("no"));
+    if (network_.hasStationIp()) {
+      Serial.print(F("INFO: WIFI station IP: "));
+      Serial.println(network_.ipAddress());
+    }
+    Serial.print(F("INFO: WIFI deferred transition pending: "));
+    Serial.println(web_.networkTransitionPending() ? F("yes") : F("no"));
   }
 
   void startProvisioning() {

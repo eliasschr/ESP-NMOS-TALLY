@@ -40,6 +40,7 @@ enum class CommandType : uint8_t {
   LedStop,
   LedBrightness,
   LedBrightnessStatus,
+  WifiStatus,
 };
 
 struct Command {

@@ -79,6 +79,13 @@ Command parseCommand(const char* line) {
   if (*value == '\0') return {CommandType::Empty, tally::State::Off, 0};
   if (readToken(value, "HELP") && hasNoMoreTokens(value)) return {CommandType::Help, tally::State::Off, 0};
   if (readToken(value, "STATUS") && hasNoMoreTokens(value)) return {CommandType::Status, tally::State::Off, 0};
+  value = skipSpaces(line);
+  if (readToken(value, "WIFI")) {
+    value = skipSpaces(value);
+    if (readToken(value, "STATUS") && hasNoMoreTokens(value))
+      return {CommandType::WifiStatus, tally::State::Off, 0};
+    return {CommandType::Invalid, tally::State::Off, 0};
+  }
   if (readToken(value, "PROVISION") && hasNoMoreTokens(value)) return {CommandType::Provision, tally::State::Off, 0};
   if (readToken(value, "EXIT") && hasNoMoreTokens(value)) return {CommandType::ExitDiagnostics, tally::State::Off, 0};
 

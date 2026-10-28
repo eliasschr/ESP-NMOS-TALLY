@@ -21,6 +21,7 @@ class ConnectionStateMachine {
   ConnectionAction update(bool connected, uint32_t now);
   ConnectionState state() const { return state_; }
   uint32_t nextAttemptAt() const { return nextAttemptAt_; }
+  uint16_t attemptCount() const { return attemptCount_; }
 
  private:
   ConnectionAction scheduleRetry(uint32_t now);
@@ -30,6 +31,7 @@ class ConnectionStateMachine {
   uint32_t nextAttemptAt_;
   uint32_t backoffMs_;
   uint8_t attemptsInBurst_;
+  uint16_t attemptCount_;
 };
 
 }  // namespace network
