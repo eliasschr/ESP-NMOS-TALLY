@@ -12,6 +12,7 @@
 #include "serial/SerialDiagnostics.h"
 #include "tally/TallyState.h"
 #include "web/RequestValidation.h"
+#include "web/DeferredNetworkTransition.h"
 
 void test_initial_state_is_off() {
   tally::StateMachine state;
@@ -59,6 +60,7 @@ void test_serial_commands_are_case_insensitive_and_map_states() {
   TEST_ASSERT_EQUAL(serial::CommandType::LedBrightnessStatus,
                     serial::parseCommand("led brightness").type);
   TEST_ASSERT_EQUAL(serial::CommandType::Provision, serial::parseCommand("PrOvIsIoN").type);
+  TEST_ASSERT_EQUAL(serial::CommandType::WifiStatus, serial::parseCommand("wifi status").type);
   TEST_ASSERT_EQUAL(serial::CommandType::EnterDiagnostics, serial::parseCommand("diagnostics on").type);
   TEST_ASSERT_EQUAL(serial::CommandType::ExitDiagnostics, serial::parseCommand("EXIT").type);
 }
@@ -317,14 +319,61 @@ void test_request_validation_rejects_malformed_input() {
   unsigned long contentLength = 0;
   TEST_ASSERT_TRUE(web::validNetworkFields("Tally", "studio", "password"));
   TEST_ASSERT_FALSE(web::validNetworkFields("", "studio", "password"));
-  TEST_ASSERT_TRUE(web::isDecimalInRange("256", 256, contentLength));
-  TEST_ASSERT_EQUAL_UINT32(256, contentLength);
-  TEST_ASSERT_FALSE(web::isDecimalInRange("257", 256, contentLength));
+  TEST_ASSERT_TRUE(web::isDecimalInRange("416", web::kMaximumRequestBodyBytes, contentLength));
+  TEST_ASSERT_EQUAL_UINT32(416, contentLength);
+  TEST_ASSERT_FALSE(web::isDecimalInRange("417", web::kMaximumRequestBodyBytes, contentLength));
   TEST_ASSERT_FALSE(web::isDecimalInRange("2 56", 256, contentLength));
   TEST_ASSERT_FALSE(web::validTallyFields("PROGRAM", "33", brightness));
   TEST_ASSERT_FALSE(web::validTallyFields("PROGRAM", "3x", brightness));
   TEST_ASSERT_TRUE(web::validTallyFields("PROGRAM", "32", brightness));
   TEST_ASSERT_EQUAL_UINT32(32, brightness);
+  TEST_ASSERT_TRUE(web::isWellFormedUrlEncoding("name=Tally&ssid=Studio+Wi-Fi&password=pa%24%24"));
+  TEST_ASSERT_FALSE(web::isWellFormedUrlEncoding("name=Tally%"));
+  TEST_ASSERT_FALSE(web::isWellFormedUrlEncoding("name=Tally%2"));
+  TEST_ASSERT_FALSE(web::isWellFormedUrlEncoding("name=Tally%XZ"));
+}
+
+void test_network_field_validation_reports_safe_categories() {
+  char tooLongName[34] = {};
+  char tooLongSsid[34] = {};
+  memset(tooLongName, 'n', 33);
+  memset(tooLongSsid, 's', 33);
+  TEST_ASSERT_EQUAL(web::NetworkFieldError::None,
+                    web::validateNetworkFields(true, "Tally", true, "studio", true, "password"));
+  TEST_ASSERT_EQUAL(web::NetworkFieldError::MissingDeviceName,
+                    web::validateNetworkFields(false, "", true, "studio", true, "password"));
+  TEST_ASSERT_EQUAL(web::NetworkFieldError::InvalidDeviceName,
+                    web::validateNetworkFields(true, tooLongName, true, "studio", true, "password"));
+  TEST_ASSERT_EQUAL(web::NetworkFieldError::MissingWifiSsid,
+                    web::validateNetworkFields(true, "Tally", true, "", true, "password"));
+  TEST_ASSERT_EQUAL(web::NetworkFieldError::WifiSsidTooLong,
+                    web::validateNetworkFields(true, "Tally", true, tooLongSsid, true, "password"));
+  TEST_ASSERT_EQUAL(web::NetworkFieldError::InvalidWifiPassword,
+                    web::validateNetworkFields(true, "Tally", true, "studio", false, ""));
+  TEST_ASSERT_EQUAL(web::NetworkFieldError::None,
+                    web::validateNetworkFields(true, "Tally", true, "Elias iPhone 14 pro", true,
+                                                "S@fe +$%&=;!"));
+  TEST_ASSERT_EQUAL(web::NetworkFieldError::None,
+                    web::validateNetworkFields(true, "Tally", true, "Studio", true, "password"));
+
+  const char utf8Ssid[] = {'C', 'a', 'f', static_cast<char>(0xC3), static_cast<char>(0xA9),
+                           ' ', 'S', 't', 'u', 'd', 'i', 'o', '\0'};
+  TEST_ASSERT_EQUAL(web::NetworkFieldError::None,
+                    web::validateNetworkFields(true, "Tally", true, utf8Ssid, true, "password"));
+}
+
+void test_request_limit_accommodates_percent_encoded_maximum_network_fields() {
+  TEST_ASSERT_EQUAL_UINT32(405, web::maximumUrlEncodedNetworkFormBytes());
+  TEST_ASSERT_TRUE(web::maximumUrlEncodedNetworkFormBytes() <= web::kMaximumRequestBodyBytes);
+  char utf8Name[35] = {};
+  for (size_t index = 0; index < 16; ++index) {
+    utf8Name[index * 2] = static_cast<char>(0xC3);
+    utf8Name[index * 2 + 1] = static_cast<char>(0xA9);
+  }
+  TEST_ASSERT_TRUE(web::validNetworkFields(utf8Name, "studio", "password"));
+  utf8Name[32] = static_cast<char>(0xC3);
+  utf8Name[33] = static_cast<char>(0xA9);
+  TEST_ASSERT_FALSE(web::validNetworkFields(utf8Name, "studio", "password"));
 }
 
 void test_connection_policy_uses_timeout_and_backoff_without_provisioning() {
@@ -339,6 +388,45 @@ void test_connection_policy_uses_timeout_and_backoff_without_provisioning() {
                                              network::ConnectionStateMachine::kInitialBackoffMs));
   TEST_ASSERT_EQUAL(network::ConnectionAction::None, policy.update(true, 30000));
   TEST_ASSERT_EQUAL(network::ConnectionState::Connected, policy.state());
+  TEST_ASSERT_EQUAL_UINT16(2, policy.attemptCount());
+}
+
+void test_connection_policy_handles_missing_configuration_and_cools_after_a_bounded_burst() {
+  network::ConnectionStateMachine policy;
+  TEST_ASSERT_EQUAL(network::ConnectionAction::None, policy.begin(false, 0));
+  TEST_ASSERT_EQUAL(network::ConnectionState::Unconfigured, policy.state());
+  TEST_ASSERT_EQUAL_UINT16(0, policy.attemptCount());
+
+  TEST_ASSERT_EQUAL(network::ConnectionAction::Connect, policy.begin(true, 0));
+  uint32_t now = network::ConnectionStateMachine::kConnectTimeoutMs;
+  TEST_ASSERT_EQUAL(network::ConnectionAction::None, policy.update(false, now));
+  TEST_ASSERT_EQUAL(network::ConnectionAction::Connect,
+                    policy.update(false, now += network::ConnectionStateMachine::kInitialBackoffMs));
+  now += network::ConnectionStateMachine::kConnectTimeoutMs;
+  TEST_ASSERT_EQUAL(network::ConnectionAction::None,
+                    policy.update(false, now));
+  now += network::ConnectionStateMachine::kInitialBackoffMs * 2;
+  TEST_ASSERT_EQUAL(network::ConnectionAction::Connect,
+                    policy.update(false, now));
+  now += network::ConnectionStateMachine::kConnectTimeoutMs;
+  TEST_ASSERT_EQUAL(network::ConnectionAction::None,
+                    policy.update(false, now));
+  TEST_ASSERT_EQUAL(network::ConnectionState::Backoff, policy.state());
+  TEST_ASSERT_EQUAL_UINT16(3, policy.attemptCount());
+  TEST_ASSERT_EQUAL(network::ConnectionAction::Connect,
+                    policy.update(false, policy.nextAttemptAt()));
+  TEST_ASSERT_EQUAL_UINT16(4, policy.attemptCount());
+}
+
+void test_deferred_network_transition_runs_exactly_once() {
+  web::DeferredNetworkTransition transition;
+  TEST_ASSERT_FALSE(transition.pending());
+  TEST_ASSERT_TRUE(transition.schedule());
+  TEST_ASSERT_TRUE(transition.pending());
+  TEST_ASSERT_FALSE(transition.schedule());
+  TEST_ASSERT_TRUE(transition.consume());
+  TEST_ASSERT_FALSE(transition.pending());
+  TEST_ASSERT_FALSE(transition.consume());
 }
 
 int main(int, char**) {
@@ -369,6 +457,10 @@ int main(int, char**) {
   RUN_TEST(test_provisioning_authorization_and_window_lifecycle);
   RUN_TEST(test_network_changes_are_distinguished_from_brightness_changes);
   RUN_TEST(test_request_validation_rejects_malformed_input);
+  RUN_TEST(test_network_field_validation_reports_safe_categories);
+  RUN_TEST(test_request_limit_accommodates_percent_encoded_maximum_network_fields);
   RUN_TEST(test_connection_policy_uses_timeout_and_backoff_without_provisioning);
+  RUN_TEST(test_connection_policy_handles_missing_configuration_and_cools_after_a_bounded_burst);
+  RUN_TEST(test_deferred_network_transition_runs_exactly_once);
   return UNITY_END();
 }
