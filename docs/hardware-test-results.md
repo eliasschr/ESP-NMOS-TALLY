@@ -2,7 +2,7 @@
 
 ## Scope
 
-This document records the first successful physical test of the ESP8266 tally assembly. It distinguishes observed behavior from unverified behavior; it is not a production qualification, electrical safety assessment, or NMOS conformance claim.
+This document records physical tests of the ESP8266 tally assembly. It distinguishes observed behavior from unverified behavior; it is not a production qualification, electrical safety assessment, network-security assessment, or NMOS conformance claim.
 
 ## Test record
 
@@ -16,6 +16,32 @@ This document records the first successful physical test of the ESP8266 tally as
 | Transport | USB power and CP2104 USB-to-UART serial interface at 115200 baud |
 
 No device MAC address, USB serial number, provisioning secret, or Wi-Fi credential is recorded here.
+
+## Phase 2 WLAN and WebUI test record
+
+| Item | Result |
+| --- | --- |
+| Test date | 2026-10-28 |
+| Hardware | Adafruit Feather HUZZAH ESP8266 with Adafruit NeoPixel FeatherWing 4×8 RGB on GPIO 2 |
+| Client | iPad Safari and iPhone Personal Hotspot |
+| Result | Pass for the observed provisioning, station connection, dashboard, persistence, and reconnect scenarios below |
+
+### User-confirmed Phase 2 results
+
+- USB serial activation of the provisioning AP succeeded.
+- iPad Safari joined the setup AP, loaded the WebUI, and controlled the tally LEDs.
+- The network form was accepted, validated, and saved.
+- The ESP8266 associated with the tested hotspot, completed DHCP, and served its station dashboard at the network-assigned address.
+- After a hardware reset, the device rejoined without being reprovisioned.
+- After the tested hotspot was disabled and re-enabled, the device reconnected automatically.
+
+### Provisioning defects found and resolved
+
+The original page submitted multipart form data and did not make the browser's serialization behavior explicit. The corrected page captures the editable values before disabling controls, then submits an explicit `application/x-www-form-urlencoded` body. The firmware now validates its content type, encoded form shape, duplicate and unexpected fields, decoded field lengths, and bounded post-parse body length. It returns stable, value-free error categories instead of reflecting submitted data.
+
+The earlier transition began while the setup-AP request was still completing, which could make the browser lose the acknowledgement during the Wi-Fi switch. The corrected server sends the successful response first and defers the AP-to-station transition to its next application-loop turn. Versioned asset URLs and a non-cacheable HTML entry point prevent a browser from reusing an older page during this compatibility-sensitive change.
+
+These results do not verify FRITZ!Box interoperability, MQTT, NMOS IS-07, electrical current, router authentication error paths, or long-term reliability.
 
 ## Observed results
 
@@ -43,7 +69,9 @@ listed above. They are not automated test results:
 - `LED BRIGHTNESS 8` and `LED BRIGHTNESS 32` adjusted diagnostic output live.
 - `LED STOP` and `EXIT` completed successfully.
 
-The test did not verify WLAN onboarding, MQTT, NMOS IS-07, current consumption,
+The initial 2026-10-27 check did not verify WLAN onboarding. The separate
+2026-10-28 Phase 2 results above subsequently verified the stated hotspot
+onboarding and recovery scenarios, but not MQTT, NMOS IS-07, current consumption,
 or long-term reliability.
 
 ### LED output and GPIO discovery
@@ -76,11 +104,8 @@ Do not place USB serial numbers or provisioning output in issue reports or commi
 
 ## Not verified by this test
 
-- Full WLAN onboarding from a browser.
-- Configuration persistence across restarts.
-- HTTP API behavior on physical hardware.
-- Authentication expiry on physical hardware.
-- Reconnect after Wi-Fi loss.
+- FRITZ!Box or other router interoperability.
+- Authentication expiry and all HTTP error paths on physical hardware.
 - MQTT transport.
 - NMOS IS-07 interoperability.
 - Electrical current measurements.

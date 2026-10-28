@@ -2,7 +2,7 @@
 
 ## Trust boundaries and provisioning
 
-Wi-Fi form fields and all HTTP requests are untrusted. Field lengths are validated before copying into fixed-size configuration storage; malformed methods and oversized post-parse request bodies are rejected. The status endpoint never returns saved Wi-Fi credentials or provisioning secrets. Credentials and secrets are not logged. Configuration and manual LED controls are available only in a serial-authorized provisioning session.
+Wi-Fi form fields and all HTTP requests are untrusted. Field lengths are validated before copying into fixed-size configuration storage; malformed methods and oversized post-parse request bodies are rejected. The setup page uses `application/x-www-form-urlencoded`, not multipart form data, so its maximum accepted fields require at most 405 encoded bytes. The 416-byte body limit preserves a small fixed margin while accommodating percent-encoded UTF-8 input. The network endpoint returns bounded error categories for a malformed form, missing or invalid device name, missing or too-long SSID, and invalid password; it never echoes submitted values. Serial diagnostics report only each field's presence and validity, never its contents. The status endpoint never returns saved Wi-Fi credentials or provisioning secrets. Credentials and secrets are not logged. Configuration and manual LED controls are available only in a serial-authorized provisioning session.
 
 USB serial access is the physical authorization boundary. The `PROVISION` command creates a new 96-bit secret from the ESP8266 SDK RNG and starts a 10-minute WPA2 AP session. The secret appears only on USB serial during that command, is never returned by HTTP, and is cleared when the session ends. Every state-changing request requires it in `X-Provisioning-Secret`; the request must also be same-origin when an `Origin` header is present. No CORS policy is enabled. Repeated authorization failures trigger a 30-second cooldown. The page does not use `localStorage`.
 
@@ -12,7 +12,9 @@ The ESP32 target keeps these controls unchanged. It obtains each provisioning-se
 
 Before provisioning, ESP32 initializes an unconnected STA interface solely to initialize the TCP/IP task required by the HTTP listener. It does not call `WiFi.begin()`, create an AP, or expose state-changing controls. The AP and its provisioning secret still require the serial `PROVISION` command.
 
-`ESP8266WebServer` parses request bodies before route handlers run. This firmware rejects bodies over 256 bytes in handlers but cannot claim a pre-parser allocation bound with that library. The setup AP is time-limited, serial-authorized, and not automatically exposed following a station failure; replacing the web server is required before claiming strict pre-parse body limits.
+`ESP8266WebServer` parses request bodies before route handlers run. This firmware rejects bodies over 416 bytes in handlers but cannot claim a pre-parser allocation bound with that library. The setup AP is time-limited, serial-authorized, and not automatically exposed following a station failure; replacing the web server is required before claiming strict pre-parse body limits. The provisioning response is sent before the firmware begins its station transition, avoiding an intentional AP teardown before the acknowledgement is emitted.
+
+The 2026-10-28 hardware test confirmed successful provisioning and station recovery, not a security assessment of the phone hotspot or of any router. `WIFI STATUS` is intentionally USB-only and reports state, retry information, disconnect reason, DHCP presence, and the current station address; it never prints SSIDs, passphrases, provisioning secrets, MAC addresses, or configuration records.
 
 ## Known limitations
 

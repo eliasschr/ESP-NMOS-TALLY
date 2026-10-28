@@ -8,7 +8,7 @@ It is not yet an NMOS device. MQTT and AMWA IS-07 integration are planned separa
 
 | Capability | Implemented | Build-verified | Unit-tested | Hardware-tested |
 | --- | --- | --- | --- | --- |
-| ESP8266 firmware, serial-authorized provisioning, status dashboard | Yes | Yes | Yes | Partial: USB, flashing, serial diagnostics, and LED output |
+| ESP8266 firmware, serial-authorized provisioning, status dashboard | Yes | Yes | Yes | Partial: USB, flashing, serial diagnostics, LED output, browser provisioning, station DHCP, persistence, and hotspot reconnect; see limitations |
 | ESP32 `esp32dev` firmware | Yes | Yes | Shared logic | No |
 | Wokwi ESP32 circuit and merged-image build tooling | Yes | Yes | N/A | No |
 | Wokwi browser execution (ESP32) | Yes | Manual simulation | N/A | No |
@@ -57,6 +57,8 @@ The first browser runtime check was run against firmware commit `0a9058e59b7d102
 
 Open the USB serial console at 115200 baud and enter `PROVISION`. The device prints a new 24-character secret and starts `ESP-NMOS-TALLY-SETUP` for ten minutes. Use that secret to join the AP and enter it again in the setup page. On a successful network-credential change the device stops its setup AP; the dashboard remains read-only on the joined network.
 
+Saving the form means the validated configuration reached LittleFS; it is not by itself proof that the ESP8266 associated with Wi-Fi. The page clearly reports this as unverified because the setup AP may disappear while switching networks. Reconnect the client to the intended 2.4 GHz network, then open the device's status page using the address assigned by that network. A status response reporting `wifiState: connected` is the device-side confirmation. This complete flow, including DHCP and the station dashboard, was physically verified on the initial ESP8266 assembly on 2026-10-28; it is not a compatibility claim for every access point.
+
 The AP never starts automatically after a normal station disconnect. USB serial access can therefore recover a device without knowing previous Wi-Fi credentials. See [getting started](docs/getting-started.md) and [security notes](docs/security.md).
 
 ## Local serial diagnostics
@@ -67,6 +69,7 @@ The same 115200-baud USB serial interface can exercise the real tally state mach
 | --- | --- |
 | `HELP` | List commands. |
 | `STATUS` | Show only the current tally and diagnostic-test state; it never prints credentials or secrets. |
+| `WIFI STATUS` | Show read-only station diagnostics: connection state, Arduino status, attempts, disconnect reason, DHCP result, and pending transition state. It never prints credentials, SSIDs, provisioning secrets, or MAC addresses. |
 | `PROVISION` | Preserve the existing serial-authorized Wi-Fi provisioning flow. |
 | `DIAGNOSTICS ON` | Authorize one temporary local diagnostic session. |
 | `TALLY PROGRAM`, `TALLY PREVIEW`, `TALLY WARNING`, `TALLY IDENTIFY`, `TALLY OFF` | Set the temporary diagnostic tally output. |
